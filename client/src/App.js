@@ -21,6 +21,7 @@ import EarningsPage from './pages/EarningsPage';
 import CartPage from './pages/CartPage';
 import LibraryPage from './pages/LibraryPage';
 import SettingsPage from './pages/SettingsPage';
+import StudentPerformancePage from './pages/StudentPerformancePage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminResourcesPage from './pages/admin/AdminResourcesPage';
 import AdminCommentsPage from './pages/admin/AdminCommentsPage';
@@ -75,6 +76,7 @@ export default function App() {
               <Route path="/library" element={<LibraryPage />} />
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/billing" element={<BillingPage />} />
+              <Route path="/analytics" element={<StudentPerformancePage />} />
               <Route path="/payment" element={<PaymentPage />} />
               <Route path="/payment/success" element={<PaymentSuccessPage />} />
               <Route path="/inquiries" element={<InquiriesPage />} />

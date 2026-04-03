@@ -8,16 +8,40 @@ export default function SignInPage() {
   const { login } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError('');
+    const newFieldErrors = {};
+
+    if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      newFieldErrors.email = 'Please enter a valid email.';
+    }
+    if (!form.password || form.password.length < 8) {
+      newFieldErrors.password = 'Password must be at least 8 characters.';
+    }
+
+    if (Object.keys(newFieldErrors).length) {
+      setFieldErrors(newFieldErrors);
+      return;
+    }
+
+    setFieldErrors({});
+
     try {
-      const { data } = await api.post('/auth/login', form);
+      const { data } = await api.post('/auth/login', {
+        email: form.email.trim().toLowerCase(),
+        password: form.password
+      });
       login(data);
       navigate(data.user.role === 'admin' ? '/admin/dashboard' : '/browse');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed.');
+      const body = err.response?.data;
+      if (body?.errors) {
+        setFieldErrors(Object.fromEntries(body.errors.map((e) => [e.param, e.msg])));
+      }
+      setError(body?.message || 'Login failed.');
     }
   }
 

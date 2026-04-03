@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  BarChart3,
   Bell,
   BookOpen,
   CreditCard,
@@ -52,6 +53,7 @@ export default function DashboardShell({ children }) {
     { label: 'Cart', path: '/cart', icon: CreditCard },
     { label: 'My Library', path: '/library', icon: Library },
     { label: 'Billing', path: '/billing', icon: Wallet },
+    { label: 'Analytics', path: '/analytics', icon: BarChart3 },
     { label: 'Orders', path: '/orders', icon: Wallet },
     { label: 'Inquiries', path: '/inquiries', icon: MessageSquare },
     { label: 'Settings', path: user?.role === 'admin' ? '/admin/dashboard' : '/settings', icon: Settings }

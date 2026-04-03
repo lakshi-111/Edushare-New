@@ -22,7 +22,7 @@ async function register(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ message: 'Validation failed.', errors: errors.array() });
 
-  const { name, email, password, role } = req.body;
+  const { name, email, password } = req.body;
 
   const existingUser = await User.findOne({ email: email.toLowerCase() });
   if (existingUser) return res.status(400).json({ message: 'User already exists with this email.' });
@@ -31,7 +31,7 @@ async function register(req, res) {
     name,
     email: email.toLowerCase(),
     password,
-    role: role === 'admin' ? 'admin' : 'student'
+    role: process.env.ALLOW_ADMIN_SIGNUP === 'true' && req.body.role === 'admin' ? 'admin' : 'student'
   });
 
   return res.status(201).json({
