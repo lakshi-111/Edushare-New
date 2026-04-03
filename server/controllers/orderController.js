@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const Resource = require('../models/Resource');
+const User = require('../models/User');
 const { createNotification } = require('../utils/notifications');
 
 async function addFreeResourceToLibrary(req, res) {
@@ -36,6 +37,14 @@ async function addFreeResourceToLibrary(req, res) {
   await resource.save();
   await User.findByIdAndUpdate(resource.uploaderId, { $inc: { totalDownloads: 1 } });
 
+  await createNotification({
+    userId: req.user._id,
+    type: 'payment',
+    title: 'Free resource added',
+    message: `You have successfully added ${resource.title} to your library.`,
+    relatedId: order._id
+  });
+
   res.status(201).json({ message: 'Resource added to your library.', order });
 }
 
@@ -65,6 +74,14 @@ async function createOrder(req, res) {
     items: orderItems,
     totalPrice,
     status: 'completed'
+  });
+
+  await createNotification({
+    userId: req.user._id,
+    type: 'payment',
+    title: 'Payment successful',
+    message: `Your payment of ${totalPrice.toFixed(2)} is completed and ${orderItems.length} resource(s) are now in your library.`,
+    relatedId: order._id
   });
 
   await Promise.all(

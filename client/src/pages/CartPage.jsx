@@ -11,20 +11,9 @@ export default function CartPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  async function handleCheckout() {
+  function handleCheckout() {
     if (!items.length) return;
-    setBusy(true);
-    setError('');
-
-    try {
-      await api.post('/orders/checkout', { items: items.map((item) => ({ resourceId: item._id })) });
-      clearCart();
-      navigate('/library?success=1');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Checkout failed.');
-    } finally {
-      setBusy(false);
-    }
+    navigate('/payment', { state: { items } });
   }
 
   if (!items.length) {

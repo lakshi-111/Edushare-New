@@ -31,6 +31,9 @@ import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
 import AdminModerationPage from './pages/admin/AdminModerationPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 import InquiriesPage from './pages/InquiriesPage';
+import PaymentPage from './pages/PaymentPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
+import BillingPage from './pages/BillingPage';
 
 function PublicLayout() {
   return (
@@ -71,6 +74,9 @@ export default function App() {
               <Route path="/cart" element={<CartPage />} />
               <Route path="/library" element={<LibraryPage />} />
               <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/billing" element={<BillingPage />} />
+              <Route path="/payment" element={<PaymentPage />} />
+              <Route path="/payment/success" element={<PaymentSuccessPage />} />
               <Route path="/inquiries" element={<InquiriesPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/profile" element={<Navigate to="/settings" replace />} />

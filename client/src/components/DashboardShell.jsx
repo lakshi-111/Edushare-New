@@ -51,6 +51,7 @@ export default function DashboardShell({ children }) {
     { label: 'Browse Resources', path: '/browse', icon: BookOpen },
     { label: 'Cart', path: '/cart', icon: CreditCard },
     { label: 'My Library', path: '/library', icon: Library },
+    { label: 'Billing', path: '/billing', icon: Wallet },
     { label: 'Orders', path: '/orders', icon: Wallet },
     { label: 'Inquiries', path: '/inquiries', icon: MessageSquare },
     { label: 'Settings', path: user?.role === 'admin' ? '/admin/dashboard' : '/settings', icon: Settings }
