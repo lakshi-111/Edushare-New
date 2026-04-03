@@ -6,6 +6,7 @@ import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import DashboardShell from './components/DashboardShell';
+import AdminShell from './components/AdminShell';
 import LandingPage from './pages/LandingPage';
 import HomePage from './pages/HomePage';
 import SignInPage from './pages/SignInPage';
@@ -20,6 +21,15 @@ import EarningsPage from './pages/EarningsPage';
 import CartPage from './pages/CartPage';
 import LibraryPage from './pages/LibraryPage';
 import SettingsPage from './pages/SettingsPage';
+import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminResourcesPage from './pages/admin/AdminResourcesPage';
+import AdminCommentsPage from './pages/admin/AdminCommentsPage';
+import AdminInquiriesPage from './pages/admin/AdminInquiriesPage';
+import AdminPaymentsPage from './pages/admin/AdminPaymentsPage';
+import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage';
+import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
+import AdminModerationPage from './pages/admin/AdminModerationPage';
+import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 import InquiriesPage from './pages/InquiriesPage';
 
 function PublicLayout() {
@@ -70,11 +80,20 @@ export default function App() {
             <Route
               element={
                 <AdminRoute>
-                  <DashboardShell />
+                  <AdminShell />
                 </AdminRoute>
               }
             >
               <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+              <Route path="/admin/users" element={<AdminUsersPage />} />
+              <Route path="/admin/resources" element={<AdminResourcesPage />} />
+              <Route path="/admin/comments" element={<AdminCommentsPage />} />
+              <Route path="/admin/inquiries" element={<AdminInquiriesPage />} />
+              <Route path="/admin/payments" element={<AdminPaymentsPage />} />
+              <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
+              <Route path="/admin/notifications" element={<AdminNotificationsPage />} />
+              <Route path="/admin/moderation" element={<AdminModerationPage />} />
+              <Route path="/admin/settings" element={<AdminSettingsPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

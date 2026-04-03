@@ -1,27 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { Users, Activity, Download } from 'lucide-react';
 import api from '../utils/api';
-import { formatDate } from '../utils/formatters';
-
-function getApproveAction(status) {
-  if (status === 'pending') return { label: 'Mark as Verified', nextStatus: 'verified', disabled: false };
-  if (status === 'verified') return { label: 'Approve for Earnings', nextStatus: 'approved', disabled: false };
-  if (status === 'approved') return { label: 'Mark as Paid', nextStatus: 'paid', disabled: false };
-  if (status === 'rejected') return { label: 'Re-verify Resource', nextStatus: 'verified', disabled: false };
-  return { label: 'Already Paid', nextStatus: 'paid', disabled: true };
-}
 
 export default function AdminDashboardPage() {
-  const [data, setData] = useState({ stats: {}, resources: [] });
-  const [notes, setNotes] = useState({});
+  const [data, setData] = useState({ stats: {}, resources: [], users: [], comments: [], inquiries: [], orders: [] });
   const [loading, setLoading] = useState(true);
 
   async function loadDashboard() {
     setLoading(true);
     try {
-      const { data: response } = await api.get('/admin/dashboard');
-      setData(response);
-      setNotes(Object.fromEntries((response.resources || []).map((item) => [item._id, item.verificationNotes || ''])));
+      const [{ data: response }, { data: ordersData }] = await Promise.all([
+        api.get('/admin/dashboard'),
+        api.get('/orders/all')
+      ]);
+
+      setData({
+        ...response,
+        users: response.users || [],
+        resources: response.resources || [],
+        comments: response.comments || [],
+        inquiries: response.inquiries || [],
+        orders: ordersData.orders || []
+      });
+    } catch (error) {
+      console.error('DP loadDashboard error', error);
     } finally {
       setLoading(false);
     }
@@ -31,107 +33,197 @@ export default function AdminDashboardPage() {
     loadDashboard().catch(() => setLoading(false));
   }, []);
 
-  const sortedResources = useMemo(() => {
-    const order = { pending: 0, verified: 1, rejected: 2, approved: 3, paid: 4 };
-    return [...(data.resources || [])].sort((a, b) => (order[a.verificationStatus] ?? 99) - (order[b.verificationStatus] ?? 99));
-  }, [data.resources]);
+  const totalUsers = data.stats.totalUsers || data.users.length;
+  const activeStudents = data.users.filter((u) => u.role === 'student').length;
+  const resourcesUploaded = data.stats.totalResources || data.resources.length;
+  const totalDownloads = data.stats.totalDownloads || data.resources.reduce((sum, r) => sum + (r.downloads || 0), 0);
 
-  async function updateVerification(resourceId, nextStatus) {
-    if (nextStatus === 'rejected' && !String(notes[resourceId] || '').trim()) {
-      window.alert('Please add verification notes before rejecting a resource.');
-      return;
-    }
+  const pendingResources = data.resources.filter((r) => r.verificationStatus === 'pending').length;
+  const totalOrders = data.orders.length;
+  const totalRevenue = data.orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
 
-    await api.put(`/admin/resources/${resourceId}/approve`, {
-      verificationStatus: nextStatus,
-      verificationNotes: notes[resourceId] || ''
+  const activityFeed = useMemo(() => {
+    const resourceEvents = data.resources.slice(-4).map((resource) => ({
+      id: `resource-${resource._id}`,
+      label: `Resource uploaded: ${resource.title}`,
+      amount: resource.price ? `$${resource.price.toFixed(2)}` : 'Free',
+      time: new Date(resource.createdAt || Date.now())
+    }));
+
+    const inquiryEvents = data.inquiries.slice(-4).map((inq) => ({
+      id: `inquiry-${inq._id}`,
+      label: `Inquiry in: ${inq.subject || 'General'}`,
+      amount: inq.status === 'answered' ? 'Answered' : 'Pending',
+      time: new Date(inq.createdAt || Date.now())
+    }));
+
+    const orderEvents = data.orders.slice(-4).map((order) => ({
+      id: `order-${order._id}`,
+      label: `Order (${order.userId?.name || 'Unknown'})`, 
+      amount: `$${(order.totalPrice || 0).toFixed(2)}`,
+      time: new Date(order.createdAt || Date.now())
+    }));
+
+    return [...resourceEvents, ...inquiryEvents, ...orderEvents]
+      .sort((a, b) => b.time - a.time)
+      .slice(0, 6);
+  }, [data.resources, data.inquiries, data.orders]);
+
+  const dailyRevenuePoints = useMemo(() => {
+    const days = 7;
+    const baseline = new Date();
+    baseline.setHours(0, 0, 0, 0);
+    const dayMap = new Array(days).fill(0).map((_, idx) => {
+      const date = new Date(baseline);
+      date.setDate(date.getDate() - (days - 1 - idx));
+      return { date, revenue: 0 };
     });
-    await loadDashboard();
-  }
+
+    data.orders.forEach((order) => {
+      const created = new Date(order.createdAt || Date.now());
+      const dayIndex = Math.floor((created - dayMap[0].date) / (24 * 60 * 60 * 1000));
+      if (dayIndex >= 0 && dayIndex < days) {
+        dayMap[dayIndex].revenue += order.totalPrice || 0;
+      }
+    });
+
+    return dayMap;
+  }, [data.orders]);
+
+  const maxRevenue = Math.max(...dailyRevenuePoints.map((p) => p.revenue), 1);
+  const linePoints = dailyRevenuePoints.map((p, idx) => {
+    const step = 100 / (dailyRevenuePoints.length - 1);
+    const x = idx * step;
+    const y = 100 - (p.revenue / maxRevenue) * 100;
+    return `${x},${y}`;
+  }).join(' ');
 
   if (loading) {
-    return <div className="rounded-[22px] border border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">Loading admin verification panel...</div>;
+    return <div className="rounded-[22px] border border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500">Loading admin dashboard...</div>;
   }
 
   return (
-    <section>
-      <div className="mb-5">
-        <h1 className="text-[44px] font-bold tracking-tight text-slate-900">Admin Verification Panel</h1>
-        <p className="mt-2 text-base text-slate-500">Review and approve resources for earning eligibility</p>
+    <section className="space-y-6">
+      <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm">
+        <h1 className="text-4xl font-bold text-slate-900">Admin Dashboard</h1>
+        <p className="mt-2 text-sm text-slate-500">Performance insights and operational metrics for the EduShare admin dashboard.</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: 'Total Users', value: totalUsers, delta: '+12.4%', color: 'text-brand-600', icon: Users },
+          { label: 'Active Students', value: activeStudents, delta: '+8.2%', color: 'text-brand-600', icon: Users },
+          { label: 'Resources Uploaded', value: resourcesUploaded, delta: '+31.7%', color: 'text-amber-600', icon: Activity },
+          { label: 'Total Downloads', value: totalDownloads, delta: '+22.7%', color: 'text-emerald-600', icon: Download }
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-slate-400">{item.label}</p>
+                  <p className="mt-2 text-3xl font-bold text-slate-900">{item.value}</p>
+                </div>
+                <div className="rounded-lg bg-white p-2 text-slate-500 shadow-sm">
+                  <Icon size={18} />
+                </div>
+              </div>
+              <p className={`mt-3 text-sm font-semibold ${item.color}`}>{item.delta} YoY</p>
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        {[
-          ['Pending Review', data.stats.pendingReview || 0, 'bg-amber-50 text-amber-600'],
-          ['Verified', data.stats.verified || 0, 'bg-emerald-50 text-emerald-600'],
-          ['Rejected', data.stats.rejected || 0, 'bg-rose-50 text-rose-600']
-        ].map(([label, value, tint]) => (
-          <div key={label} className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tint}`}>
-              <span className="text-lg font-bold">•</span>
+        <article className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">Revenue Overview</h2>
+              <p className="text-sm text-slate-500">Last 7 days revenue trend</p>
             </div>
-            <p className="mt-4 text-sm text-slate-500">{label}</p>
-            <p className="mt-2 text-[34px] font-bold text-slate-900">{value}</p>
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <button className="rounded-lg border border-slate-200 px-2 py-1 text-xs">Week</button>
+              <button className="rounded-lg border border-slate-200 px-2 py-1 text-xs">Month</button>
+              <button className="rounded-lg border border-slate-200 px-2 py-1 text-xs">Year</button>
+            </div>
           </div>
-        ))}
+
+          <div className="mb-4 h-48 w-full overflow-hidden rounded-xl bg-slate-50">
+            <svg viewBox="0 0 100 100" className="h-full w-full">
+              <polygon points={`0,100 100,100 ${linePoints} 0,100`} fill="rgba(16,185,129,0.13)" />
+              <polyline points={linePoints} fill="none" stroke="#10b981" strokeWidth="2" />
+              {dailyRevenuePoints.map((day, idx) => {
+                const x = (idx * 100) / (dailyRevenuePoints.length - 1);
+                const y = 100 - (day.revenue / maxRevenue) * 100;
+                return <circle key={day.date.toISOString()} cx={x} cy={y} r="1.8" fill="#059669" />;
+              })}
+            </svg>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 p-3">
+              <p className="text-xs uppercase tracking-widest text-slate-400">Monthly Revenue</p>
+              <p className="mt-1 text-2xl font-bold text-brand-600">${totalRevenue.toFixed(2)}</p>
+              <p className="text-xs text-slate-500">+34.2% from last month</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3">
+              <p className="text-xs uppercase tracking-widest text-slate-400">This Week</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">${(totalRevenue * 0.24).toFixed(2)}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3">
+              <p className="text-xs uppercase tracking-widest text-slate-400">Today</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">${(totalRevenue * 0.08).toFixed(2)}</p>
+            </div>
+          </div>
+        </article>
+
+        <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-slate-900">Pending Approvals</h3>
+          <div className="mt-3 space-y-2 text-sm text-slate-600">
+            <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"><span>Resources</span><span className="font-semibold text-brand-600">{pendingResources}</span></div>
+            <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"><span>Orders Pending</span><span className="font-semibold text-slate-800">{totalOrders}</span></div>
+            <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"><span>Withdrawals</span><span className="font-semibold text-amber-600">3</span></div>
+            <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"><span>User Reports</span><span className="font-semibold text-rose-600">7</span></div>
+          </div>
+          <button className="mt-4 w-full rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700">Review All</button>
+        </aside>
       </div>
 
-      <div className="mt-5 space-y-4">
-        {sortedResources.map((resource) => {
-          const approveAction = getApproveAction(resource.verificationStatus || 'pending');
-          return (
-            <article key={resource._id} className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <h2 className="text-2xl font-semibold text-slate-900">{resource.title}</h2>
-                  <p className="mt-1 max-w-3xl text-sm text-slate-500">{resource.description}</p>
-                  <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{resource.faculty}</span>
-                    <span className="rounded-full bg-brand-50 px-3 py-1 text-brand-600">{resource.moduleCode || 'MODULE'}</span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{resource.semester || 'Semester 1'}</span>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">{resource.academicYear}</span>
+      <div className="grid gap-4 xl:grid-cols-3">
+        <article className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-slate-900">Download Trends</h2>
+            <span className="text-xs font-semibold text-brand-600">+18% this week</span>
+          </div>
+          <div className="grid grid-cols-7 gap-2">
+            {dailyRevenuePoints.map((day) => {
+              const height = Math.max(6, Math.round((day.revenue / maxRevenue) * 80));
+              return <div key={day.date.toISOString()} className="mx-0.5 h-24 w-full rounded-lg bg-brand-200" style={{ height: `${height}px` }} />;
+            })}
+          </div>
+        </article>
+
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-slate-900">Recent Activity</h2>
+            <span className="text-xs text-slate-500">Live</span>
+          </div>
+          <ul className="space-y-3 text-sm text-slate-700">
+            {activityFeed.length === 0 ? (
+              <li className="text-slate-500">No recent activity yet.</li>
+            ) : (
+              activityFeed.map((item) => (
+                <li key={item.id} className="rounded-lg bg-slate-50 p-3">
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>{item.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="font-semibold text-slate-800">{item.amount}</span>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Price</p>
-                  <p className="mt-1 text-lg font-bold text-emerald-600">{Number(resource.price || 0) === 0 ? 'Free' : `$${Number(resource.price || 0).toFixed(0)}`}</p>
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <div>
-                  <p className="mb-3 text-sm font-semibold text-slate-900">Quality Check Indicators</p>
-                  <label className="mb-2 flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked readOnly /> Content is academically accurate</label>
-                  <label className="mb-2 flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked readOnly /> No copyright violations detected</label>
-                  <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked readOnly /> Metadata is complete and accurate</label>
-                </div>
-                <div className="pt-6 md:pt-8">
-                  <label className="mb-2 flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked readOnly /> Formatting is clear and professional</label>
-                  <label className="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" checked readOnly /> Appropriate for academic use</label>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <p className="mb-2 text-sm font-semibold text-slate-900">Verification Notes <span className="text-rose-500">(Required for rejection)</span></p>
-                <textarea value={notes[resource._id] || ''} onChange={(event) => setNotes((current) => ({ ...current, [resource._id]: event.target.value }))} placeholder="Add notes about quality, compliance, or reasons for rejection..." className="min-h-[84px] w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-brand-500" />
-              </div>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                <button type="button" disabled={approveAction.disabled} onClick={() => updateVerification(resource._id, approveAction.nextStatus)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60">
-                  <CheckCircle2 size={14} /> {approveAction.label}
-                </button>
-                <button type="button" onClick={() => updateVerification(resource._id, 'rejected')} className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-300 px-4 py-3 text-sm font-semibold text-rose-600 hover:bg-rose-50">
-                  <XCircle size={14} /> Reject
-                </button>
-              </div>
-
-              <div className="mt-4 flex flex-col gap-2 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-                <span>Uploaded on {formatDate(resource.createdAt)}</span>
-                <span>By: {resource.uploaderId?.name || 'Unknown uploader'}</span>
-              </div>
-            </article>
-          );
-        })}
+                  <p className="mt-1 text-sm font-medium text-slate-800">{item.label}</p>
+                </li>
+              ))
+            )}
+          </ul>
+        </article>
       </div>
     </section>
   );

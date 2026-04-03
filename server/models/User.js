@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true, select: false },
     role: { type: String, enum: ['student', 'admin'], default: 'student' },
+    isBlocked: { type: Boolean, default: false },
     badge: { type: String, enum: ['Bronze', 'Silver', 'Gold'], default: 'Bronze' },
     avatar: { type: String, default: '' },
     uploadCount: { type: Number, default: 0 },

@@ -52,6 +52,8 @@ async function login(req, res) {
   const ok = await user.comparePassword(password);
   if (!ok) return res.status(401).json({ message: 'Invalid email or password.' });
 
+  if (user.isBlocked) return res.status(403).json({ message: 'Your account has been blocked. Contact support.' });
+
   return res.json({
     message: 'Login successful.',
     token: generateToken(user),

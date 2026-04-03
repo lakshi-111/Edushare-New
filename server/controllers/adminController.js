@@ -4,6 +4,13 @@ const Comment = require('../models/Comment');
 const Inquiry = require('../models/Inquiry');
 const Order = require('../models/Order');
 
+async function deleteResource(req, res) {
+  const resource = await Resource.findById(req.params.id);
+  if (!resource) return res.status(404).json({ message: 'Resource not found.' });
+  await resource.deleteOne();
+  res.json({ message: 'Resource deleted.' });
+}
+
 async function getDashboard(req, res) {
   const [users, resources, comments, inquiries, orders] = await Promise.all([
     User.find(),
@@ -69,4 +76,38 @@ async function updateUserBadge(req, res) {
   res.json({ message: 'User badge updated.', user });
 }
 
-module.exports = { getDashboard, approveResource, deleteComment, updateUserBadge };
+async function updateUserRole(req, res) {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ message: 'User not found.' });
+  const role = req.body.role;
+  if (!['student', 'admin'].includes(role)) return res.status(400).json({ message: 'Invalid role.' });
+  user.role = role;
+  await user.save();
+  res.json({ message: 'User role updated.', user });
+}
+
+async function toggleUserBlock(req, res) {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ message: 'User not found.' });
+  user.isBlocked = !!req.body.isBlocked;
+  await user.save();
+  res.json({ message: `User ${user.isBlocked ? 'blocked' : 'unblocked'}.`, user });
+}
+
+async function removeUser(req, res) {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ message: 'User not found.' });
+  await user.deleteOne();
+  res.json({ message: 'User removed.' });
+}
+
+module.exports = {
+  getDashboard,
+  approveResource,
+  deleteResource,
+  deleteComment,
+  updateUserBadge,
+  updateUserRole,
+  toggleUserBlock,
+  removeUser
+};
