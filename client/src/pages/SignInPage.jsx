@@ -15,7 +15,7 @@ export default function SignInPage() {
     try {
       const { data } = await api.post('/auth/login', form);
       login(data);
-      navigate(data.user.role === 'admin' ? '/admin/dashboard' : '/dashboard');
+      navigate(data.user.role === 'admin' ? '/admin/dashboard' : '/browse');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed.');
     }

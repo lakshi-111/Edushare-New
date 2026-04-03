@@ -7,6 +7,7 @@ import {
   HelpCircle,
   Library,
   LogOut,
+  MessageSquare,
   Search,
   Settings,
   Upload,
@@ -51,6 +52,7 @@ export default function DashboardShell({ children }) {
     { label: 'Cart', path: '/cart', icon: CreditCard },
     { label: 'My Library', path: '/library', icon: Library },
     { label: 'Orders', path: '/orders', icon: Wallet },
+    { label: 'Inquiries', path: '/inquiries', icon: MessageSquare },
     { label: 'Settings', path: user?.role === 'admin' ? '/admin/dashboard' : '/settings', icon: Settings }
   ], [user?.role]);
 

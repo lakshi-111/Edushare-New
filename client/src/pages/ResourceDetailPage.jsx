@@ -1,24 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { BadgeCheck, CircleDollarSign, Download, FileText, ShoppingCart, Star } from 'lucide-react';
+import { BadgeCheck, CircleDollarSign, Download, FileText, Star } from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import RatingStars from '../components/RatingStars';
 import CommentSection from '../components/CommentSection';
 import InquiryForm from '../components/InquiryForm';
-import { useCart } from '../contexts/CartContext';
 import { formatCurrency, formatFileSize, getFileTypeLabel } from '../utils/formatters';
 
 export default function ResourceDetailPage() {
   const { id } = useParams();
   const { isAuthenticated } = useAuth();
-  const { addToCart } = useCart();
   const [resource, setResource] = useState(null);
   const [comments, setComments] = useState([]);
   const [ratingsSummary, setRatingsSummary] = useState({ averageRating: 0, count: 0 });
   const [userRating, setUserRating] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [addingToLibrary, setAddingToLibrary] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,13 +55,17 @@ export default function ResourceDetailPage() {
     await load();
   }
 
-  async function handleDownload() {
+  async function handleAddFreeToLibrary() {
+    setAddingToLibrary(true);
     try {
-      const { data } = await api.post(`/resources/${id}/download`);
-      window.open(data.fileUrl, '_blank', 'noopener,noreferrer');
+      await api.post('/orders/add-free', { resourceId: id });
+      setError('');
+      // Reload to show updated state
       await load();
     } catch (err) {
-      setError(err.response?.data?.message || 'Download failed.');
+      setError(err.response?.data?.message || 'Could not add to library.');
+    } finally {
+      setAddingToLibrary(false);
     }
   }
 
@@ -117,21 +120,29 @@ export default function ResourceDetailPage() {
           <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-soft">
             <p className="text-sm font-semibold uppercase tracking-wide text-slate-400">Price</p>
             <p className="mt-3 text-4xl font-bold text-slate-900">{isFree ? 'Free' : formatCurrency(resource.price)}</p>
-            <p className="mt-2 text-sm text-slate-500">Secure checkout for paid content. Free content can be downloaded directly after sign in.</p>
+            <p className="mt-2 text-sm text-slate-500">{isFree ? 'Click the button below to add this free resource to your library.' : 'Add this resource to your cart using the sidebar to proceed with payment.'}</p>
 
             <div className="mt-6 space-y-3">
-              <button onClick={() => addToCart(resource)} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700">
-                <ShoppingCart size={18} />
-                Add to cart
-              </button>
-              {isAuthenticated ? (
-                <button onClick={handleDownload} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                  <Download size={18} />
-                  Download / open file
-                </button>
+              {isFree ? (
+                <>
+                  {isAuthenticated ? (
+                    <button
+                      onClick={handleAddFreeToLibrary}
+                      disabled={addingToLibrary}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Download size={18} />
+                      {addingToLibrary ? 'Adding to library...' : 'Get free resource'}
+                    </button>
+                  ) : (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                      Sign in to get this free resource.
+                    </div>
+                  )}
+                </>
               ) : (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                  Sign in first to purchase or download this resource.
+                <div className="rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700">
+                  Use the Cart in the sidebar to add this resource and proceed to checkout.
                 </div>
               )}
             </div>
@@ -174,12 +185,8 @@ export default function ResourceDetailPage() {
       </section>
 
       <section className="mt-8 grid gap-8 lg:grid-cols-[1.2fr,0.8fr]">
-        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-soft">
-          <h2 className="text-2xl font-semibold text-slate-900">Discussion and feedback</h2>
-          <p className="mt-2 text-sm text-slate-500">Ask questions, discuss the content, and help future buyers understand the value of this file.</p>
-          <div className="mt-6">
-            <CommentSection resourceId={id} comments={comments} onReload={load} />
-          </div>
+        <div>
+          <CommentSection resourceId={id} comments={comments} onReload={load} />
         </div>
 
         <aside className="space-y-6">

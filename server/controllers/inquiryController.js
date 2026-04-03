@@ -47,6 +47,19 @@ async function getMyInquiries(req, res) {
   res.json({ inquiries });
 }
 
+async function getReceivedInquiries(req, res) {
+  // Get all resources uploaded by the current user
+  const userResources = await Resource.find({ uploaderId: req.user._id }, '_id');
+
+  // Get all inquiries for those resources
+  const resourceIds = userResources.map(resource => resource._id);
+  const inquiries = await Inquiry.find({ resourceId: { $in: resourceIds } })
+    .populate('resourceId', 'title')
+    .sort({ createdAt: -1 });
+
+  res.json({ inquiries });
+}
+
 async function answerInquiry(req, res) {
   const inquiry = await Inquiry.findById(req.params.inquiryId).populate('resourceId');
   if (!inquiry) return res.status(404).json({ message: 'Inquiry not found.' });
@@ -72,4 +85,4 @@ async function answerInquiry(req, res) {
   res.json({ message: 'Inquiry answered.', inquiry });
 }
 
-module.exports = { createInquiry, getResourceInquiries, getMyInquiries, answerInquiry };
+module.exports = { createInquiry, getResourceInquiries, getMyInquiries, getReceivedInquiries, answerInquiry };

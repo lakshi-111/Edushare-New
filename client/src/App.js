@@ -20,6 +20,7 @@ import EarningsPage from './pages/EarningsPage';
 import CartPage from './pages/CartPage';
 import LibraryPage from './pages/LibraryPage';
 import SettingsPage from './pages/SettingsPage';
+import InquiriesPage from './pages/InquiriesPage';
 
 function PublicLayout() {
   return (
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="/cart" element={<CartPage />} />
               <Route path="/library" element={<LibraryPage />} />
               <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/inquiries" element={<InquiriesPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/profile" element={<Navigate to="/settings" replace />} />
               <Route path="/connections" element={<ConnectionsPage />} />

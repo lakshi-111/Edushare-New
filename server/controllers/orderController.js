@@ -2,6 +2,43 @@ const Order = require('../models/Order');
 const Resource = require('../models/Resource');
 const { createNotification } = require('../utils/notifications');
 
+async function addFreeResourceToLibrary(req, res) {
+  const { resourceId } = req.body;
+  if (!resourceId) return res.status(400).json({ message: 'Resource ID is required.' });
+
+  const resource = await Resource.findById(resourceId);
+  if (!resource) return res.status(404).json({ message: 'Resource not found.' });
+  if (resource.price > 0) return res.status(400).json({ message: 'This is not a free resource.' });
+
+  // Check if already in library
+  const existing = await Order.findOne({
+    userId: req.user._id,
+    'items.resourceId': resourceId
+  });
+  if (existing) return res.status(400).json({ message: 'This resource is already in your library.' });
+
+  const order = await Order.create({
+    userId: req.user._id,
+    items: [
+      {
+        resourceId: resource._id,
+        title: resource.title,
+        price: 0,
+        fileUrl: resource.fileUrl,
+        fileName: resource.fileName
+      }
+    ],
+    totalPrice: 0,
+    status: 'completed'
+  });
+
+  resource.downloads += 1;
+  await resource.save();
+  await User.findByIdAndUpdate(resource.uploaderId, { $inc: { totalDownloads: 1 } });
+
+  res.status(201).json({ message: 'Resource added to your library.', order });
+}
+
 async function createOrder(req, res) {
   const items = Array.isArray(req.body.items) ? req.body.items : [];
   if (!items.length) return res.status(400).json({ message: 'Cart is empty.' });
@@ -163,4 +200,4 @@ async function getAllOrders(req, res) {
   res.json({ orders });
 }
 
-module.exports = { createOrder, getUserOrders, getUserLibrary, getSellerOverview, getAllOrders };
+module.exports = { createOrder, addFreeResourceToLibrary, getUserOrders, getUserLibrary, getSellerOverview, getAllOrders };

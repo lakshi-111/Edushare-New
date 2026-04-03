@@ -1,11 +1,12 @@
 const express = require('express');
 const { auth } = require('../middleware/auth');
-const { createOrder, getUserOrders, getUserLibrary, getSellerOverview, getAllOrders } = require('../controllers/orderController');
+const { createOrder, addFreeResourceToLibrary, getUserOrders, getUserLibrary, getSellerOverview, getAllOrders } = require('../controllers/orderController');
 
 const router = express.Router();
 
 router.use(auth);
 router.post('/checkout', createOrder);
+router.post('/add-free', addFreeResourceToLibrary);
 router.get('/my-orders', getUserOrders);
 router.get('/my-library', getUserLibrary);
 router.get('/seller-overview', getSellerOverview);

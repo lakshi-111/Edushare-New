@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { Search, BookOpen, Code2, Briefcase, Zap, Beaker, Stethoscope } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import ResourceCard from '../components/ResourceCard';
 
@@ -19,7 +19,17 @@ const YEARS = ['', '2025/2026', '2024/2025', '2023/2024'];
 const SEMESTERS = ['', 'Semester 1', 'Semester 2'];
 const MODULES = ['', 'CS201', 'MATH101', 'CHEM201', 'CS301', 'PHYS202', 'BUS101'];
 
+const CATEGORIES = [
+  { label: 'All Resources', icon: BookOpen, count: 0 },
+  { label: 'IT & Software', icon: Code2, count: 0 },
+  { label: 'Business', icon: Briefcase, count: 0 },
+  { label: 'Engineering', icon: Zap, count: 0 },
+  { label: 'Science', icon: Beaker, count: 0 },
+  { label: 'Medicine', icon: Stethoscope, count: 0 }
+];
+
 export default function HomePage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState(() => ({ ...defaultFilters, search: searchParams.get('search') || '' }));
   const [resources, setResources] = useState([]);
@@ -54,11 +64,48 @@ export default function HomePage() {
 
   return (
     <section>
-      <div className="mb-5">
-        <h1 className="text-[44px] font-bold tracking-tight text-slate-900">Academic Resource Marketplace</h1>
-        <p className="mt-2 text-base text-slate-500">Discover and download quality study materials</p>
+      {/* Hero Section */}
+      <div className="mb-12 rounded-[32px] bg-gradient-to-r from-brand-600 to-brand-700 px-6 py-12 text-center text-white sm:px-8 lg:px-12 lg:py-16">
+        <h1 className="text-3xl font-bold sm:text-4xl lg:text-5xl">Find & Share High-Quality Study Materials</h1>
+        <p className="mt-4 text-base sm:text-lg opacity-90">Join thousands of students who learn, share knowledge, and earn from their academic contributions</p>
+        
+        <div className="mt-8 max-w-2xl mx-auto">
+          <label className="flex h-12 items-center gap-3 rounded-xl bg-white px-4 text-slate-900">
+            <Search size={18} className="text-slate-400" />
+            <input
+              value={filters.search}
+              onChange={(event) => updateFilter('search', event.target.value)}
+              placeholder="Search by module, topic, or faculty..."
+              className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+            />
+          </label>
+        </div>
       </div>
 
+      {/* Browse by Category */}
+      <div className="mb-12">
+        <h2 className="text-2xl font-bold text-slate-900 mb-6">Browse by Category</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          {CATEGORIES.map((category) => {
+            const Icon = category.icon;
+            return (
+              <button
+                key={category.label}
+                onClick={() => category.label !== 'All Resources' && updateFilter('faculty', category.label)}
+                className="flex flex-col items-center justify-center rounded-[20px] border border-slate-200 bg-white p-6 shadow-soft transition hover:border-brand-500 hover:shadow-md"
+              >
+                <Icon size={28} className="text-brand-600 mb-3" />
+                <p className="text-sm font-semibold text-slate-900 text-center">{category.label}</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-slate-900 mb-4">All Resources</h2>
+        
       <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
         <label className="flex h-12 items-center gap-3 rounded-xl bg-slate-50 px-4">
           <Search size={16} className="text-slate-400" />
@@ -84,6 +131,7 @@ export default function HomePage() {
             {moduleOptions.map((item) => <option key={item || 'all-modules'} value={item}>{item || 'All Modules'}</option>)}
           </select>
         </div>
+      </div>
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-4">
