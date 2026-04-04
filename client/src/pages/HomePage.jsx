@@ -3,6 +3,7 @@ import { Search, BookOpen, Code2, Briefcase, Zap, Beaker, Stethoscope } from 'lu
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import ResourceCard from '../components/ResourceCard';
+import { EDU_SHARE_FACULTIES } from '../utils/faculties';
 
 const defaultFilters = {
   search: '',
@@ -14,7 +15,7 @@ const defaultFilters = {
   sortOrder: 'desc'
 };
 
-const FACULTIES = ['', 'Computer Science', 'Mathematics', 'Chemistry', 'Physics', 'Business'];
+const FACULTIES = ['', ...EDU_SHARE_FACULTIES];
 const YEARS = ['', '2025/2026', '2024/2025', '2023/2024'];
 const SEMESTERS = ['', 'Semester 1', 'Semester 2'];
 const MODULES = ['', 'CS201', 'MATH101', 'CHEM201', 'CS301', 'PHYS202', 'BUS101'];
