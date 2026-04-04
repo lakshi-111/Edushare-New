@@ -11,6 +11,8 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 export default function BillingPage() {
   const [orders, setOrders] = useState([]);
+  const [stats, setStats] = useState({ totalEarnings: 0, pendingPayments: 0, verifiedPayments: 0 });
+  const [monthlyTrend, setMonthlyTrend] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filter states
@@ -19,44 +21,46 @@ export default function BillingPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const { data } = await api.get('/orders/my-orders');
-        setOrders(data.orders || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [overviewRes, ordersRes] = await Promise.all([
+        api.get('/orders/seller-overview'),
+        api.get('/orders/my-orders')
+      ]);
+      
+      if (overviewRes.data.stats) setStats(overviewRes.data.stats);
+      if (overviewRes.data.monthlyTrend) setMonthlyTrend(overviewRes.data.monthlyTrend);
+      
+      setOrders(ordersRes.data.orders || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     load();
   }, []);
 
-  const totals = useMemo(() => {
-    const totalEarnings = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
-    const pendingBalance = orders.filter((o) => o.status !== 'completed').reduce((sum, o) => sum + (o.totalPrice || 0), 0);
-    const availableBalance = totalEarnings - pendingBalance;
-    return { totalEarnings, pendingBalance, availableBalance };
-  }, [orders]);
-
-  const monthly = useMemo(() => {
-    const map = new Map();
-    const today = new Date();
-    for (let i = 5; i >= 0; i -= 1) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      map.set(key, { label: d.toLocaleString('default', { month: 'short' }), amount: 0 });
+  const handleWithdraw = async () => {
+    if (stats.verifiedPayments === 0) {
+      alert('No available balance to withdraw.');
+      return;
     }
+    const confirm = window.confirm(`Withdraw Rs. ${stats.verifiedPayments}?`);
+    if (!confirm) return;
 
-    orders.forEach((order) => {
-      const d = new Date(order.createdAt || Date.now());
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      if (map.has(key)) map.get(key).amount += order.totalPrice || 0;
-    });
-    return [...map.values()];
-  }, [orders]);
+    try {
+      await api.post('/orders/withdraw');
+      alert('Successfully withdrawn!');
+      load();
+    } catch (err) {
+      console.error('Withdrawal failed', err);
+      alert('Withdrawal failed. Please try again.');
+    }
+  };
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -68,7 +72,7 @@ export default function BillingPage() {
       if (statusFilter !== 'All statuses') {
         let derivedStatus = 'pending';
         const s = order.status?.toLowerCase();
-        if (s === 'completed' || s === 'paid') derivedStatus = 'paid';
+        if (s === 'completed' || s === 'paid' || s === 'approved') derivedStatus = 'paid';
         else if (s === 'verified') derivedStatus = 'verified';
 
         if (statusFilter.toLowerCase() !== derivedStatus) return false;
@@ -90,11 +94,11 @@ export default function BillingPage() {
   }, [orders, searchTerm, statusFilter, startDate, endDate]);
 
   const chartData = {
-    labels: monthly.map((m) => m.label),
+    labels: monthlyTrend.map((m) => m.label),
     datasets: [
       {
         label: 'Earnings',
-        data: monthly.map((m) => m.amount),
+        data: monthlyTrend.map((m) => m.amount),
         backgroundColor: '#6b21a8',
         hoverBackgroundColor: '#581c87',
         borderRadius: 4,
@@ -130,6 +134,7 @@ export default function BillingPage() {
     switch (status?.toLowerCase()) {
       case 'completed':
       case 'paid':
+      case 'approved':
         return (
           <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-emerald-600 uppercase">
             Paid
@@ -168,7 +173,7 @@ export default function BillingPage() {
       
       let derivedStatus = 'Pending';
       const s = order.status?.toLowerCase();
-      if (s === 'completed' || s === 'paid') derivedStatus = 'Paid';
+      if (s === 'completed' || s === 'paid' || s === 'approved') derivedStatus = 'Paid';
       else if (s === 'verified') derivedStatus = 'Verified';
 
       tableRows.push([date, title, amount, derivedStatus]);
@@ -183,7 +188,7 @@ export default function BillingPage() {
       headStyles: { fillColor: [107, 33, 168] }, // Matches purple-800
     });
 
-    doc.save(`transaction_history_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`purchasing_history_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   return (
@@ -193,7 +198,10 @@ export default function BillingPage() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Billing Dashboard</h1>
           <p className="mt-1 text-sm text-slate-500">Manage your earnings and transactions</p>
         </div>
-        <button className="inline-flex items-center gap-2 rounded-lg bg-purple-800 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-purple-900 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+        <button 
+          onClick={handleWithdraw}
+          className="inline-flex items-center gap-2 rounded-lg bg-purple-800 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-purple-900 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+        >
           <ArrowDownToLine className="h-4 w-4" />
           Withdraw Earnings
         </button>
@@ -203,7 +211,7 @@ export default function BillingPage() {
         <div className="rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm flex justify-between items-start transition-all hover:shadow-md">
           <div>
             <p className="text-sm font-medium text-slate-500">Total Earnings</p>
-            <p className="mt-2 text-3xl sm:text-4xl font-bold text-slate-900">{formatCurrency(totals.totalEarnings)}</p>
+            <p className="mt-2 text-3xl sm:text-4xl font-bold text-slate-900">{formatCurrency(stats.totalEarnings)}</p>
           </div>
           <div className="rounded-xl bg-purple-50 p-3">
             <DollarSign className="h-6 w-6 text-purple-600" />
@@ -213,7 +221,7 @@ export default function BillingPage() {
         <div className="rounded-[20px] border border-purple-100 bg-purple-50/40 p-6 shadow-sm flex justify-between items-start transition-all hover:shadow-md">
           <div>
             <p className="text-sm font-medium text-slate-500">Available Balance</p>
-            <p className="mt-2 text-3xl sm:text-4xl font-bold text-slate-900">{formatCurrency(totals.availableBalance)}</p>
+            <p className="mt-2 text-3xl sm:text-4xl font-bold text-slate-900">{formatCurrency(stats.verifiedPayments)}</p>
             <p className="mt-1.5 text-xs font-medium text-purple-600">Ready to withdraw</p>
           </div>
           <div className="rounded-xl bg-purple-100 p-3 flex-shrink-0">
@@ -224,7 +232,7 @@ export default function BillingPage() {
         <div className="rounded-[20px] border border-orange-100 bg-orange-50/40 p-6 shadow-sm flex justify-between items-start transition-all hover:shadow-md">
           <div>
             <p className="text-sm font-medium text-slate-500">Pending Balance</p>
-            <p className="mt-2 text-3xl sm:text-4xl font-bold text-slate-900">{formatCurrency(totals.pendingBalance)}</p>
+            <p className="mt-2 text-3xl sm:text-4xl font-bold text-slate-900">{formatCurrency(stats.pendingPayments)}</p>
             <p className="mt-1.5 text-xs font-medium text-orange-600">Awaiting verification</p>
           </div>
           <div className="rounded-xl bg-orange-100 p-3 flex-shrink-0">
@@ -242,7 +250,7 @@ export default function BillingPage() {
 
       <div className="mt-8 rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h2 className="text-lg font-bold text-slate-900">Transaction History</h2>
+          <h2 className="text-lg font-bold text-slate-900">Purchasing History</h2>
           <div className="flex items-center gap-3">
             <button 
               onClick={handleDownloadPDF}
@@ -300,9 +308,9 @@ export default function BillingPage() {
         </div>
 
         {loading ? (
-          <div className="mt-8 text-sm text-slate-500 text-center py-10">Loading transactions...</div>
+          <div className="mt-8 text-sm text-slate-500 text-center py-10">Loading orders...</div>
         ) : !filteredOrders.length ? (
-          <div className="mt-8 text-sm text-slate-500 text-center py-10 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">No transactions found.</div>
+          <div className="mt-8 text-sm text-slate-500 text-center py-10 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">No purchases found.</div>
         ) : (
           <div className="mt-6 overflow-x-auto">
             <table className="min-w-full text-left text-sm whitespace-nowrap">

@@ -1,6 +1,6 @@
 const express = require('express');
 const { auth } = require('../middleware/auth');
-const { createOrder, addFreeResourceToLibrary, getUserOrders, getUserLibrary, getSellerOverview, getAllOrders, updateOrderStatus } = require('../controllers/orderController');
+const { createOrder, addFreeResourceToLibrary, getUserOrders, getUserLibrary, getSellerOverview, getAllOrders, updateOrderStatus, withdrawEarnings } = require('../controllers/orderController');
 
 const router = express.Router();
 
@@ -12,5 +12,6 @@ router.get('/my-library', getUserLibrary);
 router.get('/seller-overview', getSellerOverview);
 router.get('/all', getAllOrders);
 router.put('/:id/status', updateOrderStatus);
+router.post('/withdraw', withdrawEarnings);
 
 module.exports = router;

@@ -149,7 +149,7 @@ async function getSellerOverview(req, res) {
           resourceId: item.resourceId,
           title: item.title,
           amount: item.price,
-          status: resource?.verificationStatus || 'pending',
+          status: order.status || 'pending',
           buyer: order.userId?.email || order.userId?.name || 'Unknown buyer',
           buyerName: order.userId?.name || 'Unknown buyer',
           date: order.createdAt,
@@ -164,12 +164,15 @@ async function getSellerOverview(req, res) {
     .filter((item) => item.status === 'pending')
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-  const verifiedPayments = transactions
-    .filter((item) => ['verified', 'approved', 'paid'].includes(item.status))
+  const allVerifiedAndApproved = transactions
+    .filter((item) => ['verified', 'approved', 'paid', 'completed'].includes(item.status))
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
+  const withdrawnAmount = req.user.withdrawnAmount || 0;
+  const verifiedPayments = Math.max(0, allVerifiedAndApproved - withdrawnAmount);
+  const totalEarnings = withdrawnAmount;
+
   const completedPayouts = transactions.filter((item) => item.status === 'paid').length;
-  const totalEarnings = transactions.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   const monthLabels = [];
   const monthBuckets = new Map();
@@ -274,4 +277,34 @@ async function updateOrderStatus(req, res) {
   res.json({ message: 'Order status updated.', order });
 }
 
-module.exports = { createOrder, addFreeResourceToLibrary, getUserOrders, getUserLibrary, getSellerOverview, getAllOrders, updateOrderStatus };
+async function withdrawEarnings(req, res) {
+  const resources = await Resource.find({ uploaderId: req.user._id });
+  const resourceIds = resources.map(r => r._id);
+
+  const orders = await Order.find({ 
+    'items.resourceId': { $in: resourceIds },
+    status: { $in: ['verified', 'approved', 'paid', 'completed'] }
+  });
+
+  const transactions = orders.flatMap((order) =>
+    order.items
+      .filter((item) => resourceIds.some(rid => rid.equals(item.resourceId)))
+      .map((item) => ({ amount: item.price }))
+  );
+
+  const allVerifiedAndApproved = transactions.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const withdrawnAmount = req.user.withdrawnAmount || 0;
+  const availableToWithdraw = Math.max(0, allVerifiedAndApproved - withdrawnAmount);
+
+  if (availableToWithdraw <= 0) {
+    return res.status(400).json({ message: 'No available balance to withdraw.' });
+  }
+
+  await User.findByIdAndUpdate(req.user._id, {
+    $inc: { withdrawnAmount: availableToWithdraw }
+  });
+
+  res.json({ message: `Successfully withdrawn`, amount: availableToWithdraw });
+}
+
+module.exports = { createOrder, addFreeResourceToLibrary, getUserOrders, getUserLibrary, getSellerOverview, getAllOrders, updateOrderStatus, withdrawEarnings };
