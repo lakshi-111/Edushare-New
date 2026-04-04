@@ -13,7 +13,7 @@ const orderSchema = new mongoose.Schema(
       }
     ],
     totalPrice: { type: Number, required: true, min: 0 },
-    status: { type: String, enum: ['pending', 'completed'], default: 'completed' }
+    status: { type: String, enum: ['pending', 'verified', 'approved', 'paid', 'completed', 'rejected'], default: 'pending' }
   },
   { timestamps: true }
 );

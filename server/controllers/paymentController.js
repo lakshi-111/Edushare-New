@@ -34,7 +34,7 @@ async function processPayment(req, res) {
     userId: req.user._id,
     items: orderItems,
     totalPrice,
-    status: 'completed'
+    status: 'pending'
   });
 
   await Promise.all(

@@ -217,7 +217,61 @@ async function getSellerOverview(req, res) {
 async function getAllOrders(req, res) {
   if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin access required.' });
   const orders = await Order.find().populate('userId', 'name email').sort({ createdAt: -1 });
-  res.json({ orders });
+
+  const resourceIds = [...new Set(orders.flatMap((order) => order.items.map((item) => String(item.resourceId))))];
+  const resources = await Resource.find({ _id: { $in: resourceIds } }).populate('uploaderId', 'name email');
+  const resourceMap = new Map(resources.map((r) => [String(r._id), r]));
+
+  const transactions = orders.flatMap((order) =>
+    order.items.map((item) => {
+      const resource = resourceMap.get(String(item.resourceId));
+      return {
+        _id: order._id,
+        itemId: item.resourceId,
+        resourceId: item.resourceId,
+        title: item.title,
+        amount: item.price,
+        status: order.status,
+        buyerName: order.userId?.name || order.userId?.email || 'Unknown',
+        sellerName: resource?.uploaderId?.name || 'Unknown',
+        date: order.createdAt
+      };
+    })
+  );
+
+  res.json({ orders, transactions });
 }
 
-module.exports = { createOrder, addFreeResourceToLibrary, getUserOrders, getUserLibrary, getSellerOverview, getAllOrders };
+async function updateOrderStatus(req, res) {
+  if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin access required.' });
+  const { status } = req.body;
+  const orderId = req.params.id;
+
+  const order = await Order.findById(orderId);
+  if (!order) return res.status(404).json({ message: 'Order not found.' });
+
+  const allowedStatuses = ['pending', 'verified', 'approved', 'paid', 'completed', 'rejected'];
+  if (!allowedStatuses.includes(status)) return res.status(400).json({ message: 'Invalid status.' });
+
+  order.status = status;
+  await order.save();
+
+  const isVerifiedOrd = status === 'verified';
+  const isApprovedOrd = status === 'approved' || status === 'paid';
+
+  if (isVerifiedOrd || isApprovedOrd) {
+    const titleText = isVerifiedOrd ? 'Payment Verified' : 'Payment Approved';
+    const actionText = isVerifiedOrd ? 'verified' : 'approved';
+    await createNotification({
+      userId: order.userId,
+      type: 'payment',
+      title: titleText,
+      message: `Your payment has been ${actionText} by the admin.`,
+      relatedId: order._id
+    });
+  }
+
+  res.json({ message: 'Order status updated.', order });
+}
+
+module.exports = { createOrder, addFreeResourceToLibrary, getUserOrders, getUserLibrary, getSellerOverview, getAllOrders, updateOrderStatus };
