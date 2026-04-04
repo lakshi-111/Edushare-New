@@ -54,7 +54,6 @@ export default function DashboardShell({ children }) {
     { label: 'My Library', path: '/library', icon: Library },
     { label: 'Billing', path: '/billing', icon: Wallet },
     { label: 'Analytics', path: '/analytics', icon: BarChart3 },
-    { label: 'Orders', path: '/orders', icon: Wallet },
     { label: 'Inquiries', path: '/inquiries', icon: MessageSquare },
     { label: 'Settings', path: user?.role === 'admin' ? '/admin/dashboard' : '/settings', icon: Settings }
   ], [user?.role]);
@@ -123,9 +122,9 @@ export default function DashboardShell({ children }) {
 
             <button
               type="button"
-              onClick={() => navigate('/orders')}
+              onClick={() => navigate('/billing')}
               className="relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50"
-              title="Notifications"
+              title="Billing"
             >
               <Bell size={16} />
               {unreadCount > 0 && (

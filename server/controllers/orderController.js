@@ -87,15 +87,18 @@ async function createOrder(req, res) {
   await Promise.all(
     resources
       .filter((resource) => resource.uploaderId.toString() !== req.user._id.toString())
-      .map((resource) =>
-        createNotification({
+      .map(async (resource) => {
+        await User.findByIdAndUpdate(resource.uploaderId, {
+          $inc: { totalEarnings: resource.price > 0 ? resource.price : 0 }
+        });
+        return createNotification({
           userId: resource.uploaderId,
           type: 'order',
           title: 'Resource purchased',
           message: `${req.user.name} purchased "${resource.title}".`,
           relatedId: order._id
-        })
-      )
+        });
+      })
   );
 
   res.status(201).json({ message: 'Order completed.', order });

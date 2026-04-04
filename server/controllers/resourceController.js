@@ -144,7 +144,7 @@ async function downloadResource(req, res) {
   resource.downloads += 1;
   await resource.save();
 
-  await User.findByIdAndUpdate(resource.uploaderId, { $inc: { totalDownloads: 1, totalEarnings: resource.price > 0 ? resource.price : 0 } });
+  await User.findByIdAndUpdate(resource.uploaderId, { $inc: { totalDownloads: 1 } });
 
   res.json({ message: 'Download recorded.', fileUrl: resource.fileUrl, fileName: resource.fileName });
 }

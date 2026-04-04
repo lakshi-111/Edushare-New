@@ -31,7 +31,6 @@ export default function Navbar() {
         <nav className="hidden items-center gap-5 md:flex">
           <NavLink to="/home" className={linkClass}>Resources</NavLink>
           {isAuthenticated && <NavLink to="/upload" className={linkClass}>Manage resources</NavLink>}
-          {isAuthenticated && <NavLink to="/orders" className={linkClass}>Orders</NavLink>}
           {isAuthenticated && <NavLink to="/earnings" className={linkClass}>Earnings</NavLink>}
           {isAuthenticated && <NavLink to="/profile" className={linkClass}>Profile</NavLink>}
           <NavLink to="/contact" className={linkClass}>Contact</NavLink>
@@ -51,9 +50,9 @@ export default function Navbar() {
                 <Upload size={16} />
                 Upload
               </Link>
-              <button onClick={() => navigate('/orders')} className="hidden rounded-2xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 lg:flex lg:items-center lg:gap-2">
+              <button onClick={() => navigate('/billing')} className="hidden rounded-2xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 lg:flex lg:items-center lg:gap-2">
                 <CreditCard size={16} />
-                Orders
+                Billing
               </button>
               <button onClick={() => navigate('/earnings')} className="hidden rounded-2xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 xl:flex xl:items-center xl:gap-2">
                 <Wallet size={16} />

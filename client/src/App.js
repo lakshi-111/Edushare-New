@@ -16,7 +16,6 @@ import ResourceUploadPage from './pages/ResourceUploadPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import ContactPage from './pages/ContactPage';
 import ConnectionsPage from './pages/ConnectionsPage';
-import OrdersPage from './pages/OrdersPage';
 import EarningsPage from './pages/EarningsPage';
 import CartPage from './pages/CartPage';
 import LibraryPage from './pages/LibraryPage';
@@ -74,7 +73,7 @@ export default function App() {
               <Route path="/upload" element={<ResourceUploadPage />} />
               <Route path="/cart" element={<CartPage />} />
               <Route path="/library" element={<LibraryPage />} />
-              <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/orders" element={<Navigate to="/billing" replace />} />
               <Route path="/billing" element={<BillingPage />} />
               <Route path="/analytics" element={<StudentPerformancePage />} />
               <Route path="/payment" element={<PaymentPage />} />

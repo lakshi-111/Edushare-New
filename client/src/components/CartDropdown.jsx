@@ -17,7 +17,7 @@ export default function CartDropdown() {
     }
 
     if (!items.length) {
-      navigate('/orders');
+      navigate('/billing');
       return;
     }
 
@@ -29,7 +29,7 @@ export default function CartDropdown() {
       clearCart();
       navigate('/orders?success=1');
     } catch (_error) {
-      navigate('/orders');
+      navigate('/billing');
     }
   }
 
@@ -46,8 +46,8 @@ export default function CartDropdown() {
               <h3 className="text-sm font-semibold text-slate-900">Your cart</h3>
               <p className="mt-1 text-xs text-slate-500">Quick order preview</p>
             </div>
-            <button type="button" onClick={() => navigate('/orders')} className="text-xs font-semibold text-brand-700 hover:text-brand-800">
-              Open order center
+            <button type="button" onClick={() => navigate('/billing')} className="text-xs font-semibold text-brand-700 hover:text-brand-800">
+              Open billing center
             </button>
           </div>
 
