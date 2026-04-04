@@ -14,6 +14,10 @@ function authPayload(user) {
     totalEarnings: user.totalEarnings,
     averageRating: user.averageRating,
     avatar: user.avatar,
+    studentIdNumber: user.studentIdNumber,
+    faculty: user.faculty,
+    year: user.year,
+    semester: user.semester,
     createdAt: user.createdAt
   };
 }
@@ -22,7 +26,7 @@ async function register(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ message: 'Validation failed.', errors: errors.array() });
 
-  const { name, email, password } = req.body;
+  const { name, email, password, studentIdNumber, faculty, year, semester } = req.body;
 
   const existingUser = await User.findOne({ email: email.toLowerCase() });
   if (existingUser) return res.status(400).json({ message: 'User already exists with this email.' });
@@ -31,7 +35,11 @@ async function register(req, res) {
     name,
     email: email.toLowerCase(),
     password,
-    role: process.env.ALLOW_ADMIN_SIGNUP === 'true' && req.body.role === 'admin' ? 'admin' : 'student'
+    role: process.env.ALLOW_ADMIN_SIGNUP === 'true' && req.body.role === 'admin' ? 'admin' : 'student',
+    studentIdNumber: typeof studentIdNumber === 'string' ? studentIdNumber.trim() : '',
+    faculty: typeof faculty === 'string' ? faculty.trim() : '',
+    year: typeof year === 'string' ? year.trim() : '',
+    semester: typeof semester === 'string' ? semester.trim() : ''
   });
 
   return res.status(201).json({
@@ -66,11 +74,26 @@ async function getProfile(req, res) {
 }
 
 async function updateProfile(req, res) {
-  const { name, avatar } = req.body;
+  const { name, avatar, studentIdNumber, faculty, year, semester } = req.body;
   if (typeof name === 'string') req.user.name = name.trim();
   if (typeof avatar === 'string') req.user.avatar = avatar.trim();
+  if (typeof studentIdNumber === 'string') req.user.studentIdNumber = studentIdNumber.trim();
+  if (typeof faculty === 'string') req.user.faculty = faculty.trim();
+  if (typeof year === 'string') req.user.year = year.trim();
+  if (typeof semester === 'string') req.user.semester = semester.trim();
+
   await req.user.save();
   return res.json({ message: 'Profile updated.', user: authPayload(req.user) });
+}
+
+async function clearStudentRecord(req, res) {
+  req.user.studentIdNumber = '';
+  req.user.faculty = '';
+  req.user.year = '';
+  req.user.semester = '';
+
+  await req.user.save();
+  return res.json({ message: 'Student record deleted.', user: authPayload(req.user) });
 }
 
 async function changePassword(req, res) {
@@ -89,4 +112,4 @@ async function changePassword(req, res) {
   return res.json({ message: 'Password changed successfully.' });
 }
 
-module.exports = { register, login, getProfile, updateProfile, changePassword };
+module.exports = { register, login, getProfile, updateProfile, clearStudentRecord, changePassword };

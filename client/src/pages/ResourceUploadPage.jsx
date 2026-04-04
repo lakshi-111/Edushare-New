@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FileUp, Pencil, Trash2, UploadCloud } from 'lucide-react';
 import api from '../utils/api';
+import { EDU_SHARE_FACULTIES } from '../utils/faculties';
 
 const initialForm = {
   title: '',
   description: '',
-  faculty: 'Computer Science',
+  faculty: 'Faculty of Computing',
   academicYear: '2025/2026',
   semester: 'Semester 1',
   moduleCode: '',
@@ -14,11 +15,11 @@ const initialForm = {
 };
 
 const facultyToCategory = {
-  'Computer Science': 'Computer Science',
-  Mathematics: 'Mathematics',
-  Chemistry: 'Chemistry',
-  Physics: 'Physics',
-  Business: 'Business'
+  'Faculty of Computing': 'IT & Software',
+  'Faculty of Business': 'Business',
+  'Faculty of Engineering': 'Engineering',
+  'Faculty of Architecture': 'Engineering',
+  'Faculty of Humanities and Science': 'Science'
 };
 
 export default function ResourceUploadPage() {
@@ -61,7 +62,7 @@ export default function ResourceUploadPage() {
     setForm({
       title: resource.title || '',
       description: resource.description || '',
-      faculty: resource.faculty || 'Computer Science',
+      faculty: resource.faculty || 'Faculty of Computing',
       academicYear: resource.academicYear || '2025/2026',
       semester: resource.semester || 'Semester 1',
       moduleCode: resource.moduleCode || '',
@@ -187,7 +188,7 @@ export default function ResourceUploadPage() {
               <label>
                 <p className="mb-2 text-sm font-semibold text-slate-900">Faculty *</p>
                 <select value={form.faculty} onChange={(event) => setForm((current) => ({ ...current, faculty: event.target.value }))} className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none focus:border-brand-500">
-                  {Object.keys(facultyToCategory).map((item) => <option key={item} value={item}>{item}</option>)}
+                  {EDU_SHARE_FACULTIES.map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
               </label>
               <label>
