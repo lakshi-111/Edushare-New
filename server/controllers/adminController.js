@@ -3,6 +3,7 @@ const Resource = require('../models/Resource');
 const Comment = require('../models/Comment');
 const Inquiry = require('../models/Inquiry');
 const Order = require('../models/Order');
+const { createNotification } = require('../utils/notifications');
 
 async function deleteResource(req, res) {
   const resource = await Resource.findById(req.params.id);
@@ -57,6 +58,17 @@ async function approveResource(req, res) {
   await resource.save();
 
   const populated = await Resource.findById(resource._id).populate('uploaderId', 'name email badge');
+
+  if (verificationStatus === 'verified') {
+    await createNotification({
+      userId: resource.uploaderId,
+      type: 'verification',
+      title: 'Resource Verified',
+      message: `Your resource '${resource.title}' has been verified by admin.`,
+      relatedId: resource._id
+    });
+  }
+
   res.json({ message: 'Resource verification updated.', resource: populated });
 }
 
