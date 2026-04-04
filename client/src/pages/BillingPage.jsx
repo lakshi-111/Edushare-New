@@ -21,21 +21,26 @@ export default function BillingPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Fetch overview statistics, monthly trend data, and complete order history for the seller
   const load = async () => {
     setLoading(true);
     try {
+      // Execute both API requests in parallel for better performance
       const [overviewRes, ordersRes] = await Promise.all([
         api.get('/orders/seller-overview'),
         api.get('/orders/my-orders')
       ]);
       
+      // Update state with overview statistics and monthly trends if available
       if (overviewRes.data.stats) setStats(overviewRes.data.stats);
       if (overviewRes.data.monthlyTrend) setMonthlyTrend(overviewRes.data.monthlyTrend);
       
+      // Update order history
       setOrders(ordersRes.data.orders || []);
     } catch (err) {
       console.error(err);
     } finally {
+      // Ensure loading state is turned off regardless of success or failure
       setLoading(false);
     }
   };
@@ -44,17 +49,24 @@ export default function BillingPage() {
     load();
   }, []);
 
+  // Handle the withdrawal of available (verified) funds calculation
   const handleWithdraw = async () => {
+    // Check if there are sufficient verified funds to withdraw
     if (stats.verifiedPayments === 0) {
       alert('No available balance to withdraw.');
       return;
     }
+    
+    // Prompt the user to confirm the withdrawal amount
     const confirm = window.confirm(`Withdraw Rs. ${stats.verifiedPayments}?`);
     if (!confirm) return;
 
     try {
+      // Proceed with the withdrawal request
       await api.post('/orders/withdraw');
       alert('Successfully withdrawn!');
+      
+      // Refresh the dashboard data post-withdrawal to reflect the new balance
       load();
     } catch (err) {
       console.error('Withdrawal failed', err);
@@ -62,33 +74,42 @@ export default function BillingPage() {
     }
   };
 
+  // Memoized derived state for filtering order history based on user input
+  // Re-runs only when the order list or filter criteria change
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      // 1. Search filter
+      // 1. Search Filter: Matches against resource title or order ID
       const title = order.items?.[0]?.resourceId?.title || order.title || `Resource #${order._id.slice(-8).toUpperCase()}`;
       if (searchTerm && !title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
 
-      // 2. Status filter
+      // 2. Status Filter: Normalizes multiple backend statuses into user-friendly ones (Paid, Verified, Pending)
       if (statusFilter !== 'All statuses') {
         let derivedStatus = 'pending';
         const s = order.status?.toLowerCase();
+        
+        // Treat completed, paid, and approved statuses as 'paid'
         if (s === 'completed' || s === 'paid' || s === 'approved') derivedStatus = 'paid';
+        // Keep verified separate as it relates to available balance
         else if (s === 'verified') derivedStatus = 'verified';
 
         if (statusFilter.toLowerCase() !== derivedStatus) return false;
       }
 
-      // 3. Date range filter
+      // 3. Date Range Filter: Verifies if order date falls within the selected bounds
       if (startDate || endDate) {
         const orderDate = new Date(order.createdAt);
+        // Exclude if earlier than start date
         if (startDate && orderDate < new Date(startDate)) return false;
+        
+        // Exclude if later than end date (shifted to include entire end date)
         if (endDate) {
           const end = new Date(endDate);
-          end.setDate(end.getDate() + 1); // include the entire end date day
+          end.setDate(end.getDate() + 1); // Expand the boundary to midnight of the next day
           if (orderDate >= end) return false;
         }
       }
 
+      // Include order if it passes all checks
       return true;
     });
   }, [orders, searchTerm, statusFilter, startDate, endDate]);
@@ -155,22 +176,28 @@ export default function BillingPage() {
     }
   };
 
+  // Generates and downloads a custom PDF report of the currently filtered transaction history
   const handleDownloadPDF = () => {
     const doc = new jsPDF();
     
-    // Add title
+    // Setup Document header and title
     doc.setFontSize(18);
     doc.text('Transaction History', 14, 22);
 
-    // Prepare table data
+    // Setup Table headers
     const tableColumn = ["Date", "Resource", "Amount", "Status"];
     const tableRows = [];
 
+    // Map the currently filtered orders into formatted rows suitable for the jspdf-autotable plugin
     filteredOrders.forEach((order) => {
+      // Extract formatted date
       const date = new Date(order.createdAt).toISOString().split('T')[0];
+      // Extract resource title, falling back to a formatted ID if necessary
       const title = order.items?.[0]?.resourceId?.title || order.title || `Resource #${order._id.slice(-8).toUpperCase()}`;
+      // Format currency (Rs.)
       const amount = formatCurrency(order.totalPrice);
       
+      // Compute human-readable normalized status
       let derivedStatus = 'Pending';
       const s = order.status?.toLowerCase();
       if (s === 'completed' || s === 'paid' || s === 'approved') derivedStatus = 'Paid';
@@ -179,15 +206,17 @@ export default function BillingPage() {
       tableRows.push([date, title, amount, derivedStatus]);
     });
 
+    // Generate table dynamically with autotable passing defined rows and customized styling
     autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 30,
       theme: 'grid',
       styles: { fontSize: 10, cellPadding: 3 },
-      headStyles: { fillColor: [107, 33, 168] }, // Matches purple-800
+      headStyles: { fillColor: [107, 33, 168] }, // Mirrors app theme (purple-800)
     });
 
+    // Save and download file with timestamped name
     doc.save(`purchasing_history_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 

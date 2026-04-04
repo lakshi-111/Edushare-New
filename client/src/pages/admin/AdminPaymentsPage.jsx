@@ -12,6 +12,8 @@ export default function AdminPaymentsPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // On component mount, retrieve the flattened list of all global transactions
+  // This allows the admin to view all pending/completed financial activities system-wide
   useEffect(() => {
     async function load() {
       try {
@@ -26,6 +28,8 @@ export default function AdminPaymentsPage() {
     load();
   }, []);
 
+  // Handler for mutating a transaction's state manually (e.g. from 'pending' to 'verified')
+  // Automatically syncs the local UI state on successful API response to prevent needing a full reload
   const handleUpdateStatus = async (transactionId, newStatus) => {
     try {
       await api.put(`/orders/${transactionId}/status`, { status: newStatus });
@@ -37,6 +41,11 @@ export default function AdminPaymentsPage() {
     }
   };
 
+  // Memoized aggregator applying the 4 toolbar filters to the raw transactions list:
+  // 1. Text Search (resource name)
+  // 2. Status Dropdown (Paid, Verified, Pending)
+  // 3. Start Date boundary
+  // 4. End Date boundary (shifted to the end of the day)
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
       const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -47,18 +56,23 @@ export default function AdminPaymentsPage() {
       let matchesEnd = true;
       if (endDate) {
         const endD = new Date(endDate);
+        // Expand the end boundary to catch all transactions occurring at any time on the end date
         endD.setHours(23, 59, 59, 999);
         matchesEnd = txDate <= endD;
       }
 
+      // Include row only if it safely passes all dynamic filter constraints
       return matchesSearch && matchesStatus && matchesStart && matchesEnd;
     });
   }, [transactions, searchQuery, statusFilter, startDate, endDate]);
 
+  // Compiles and triggers the download for a formatted PDF ledger
+  // This report respects the current active filters matching the table UI 1:1
   const handleDownloadPDF = () => {
     const doc = new jsPDF();
     doc.text('Payment Management Report', 14, 15);
     
+    // Inject the structured layout using the autoTable plugin
     autoTable(doc, {
       head: [['Date', 'Buyer', 'Seller', 'Resource', 'Amount', 'Status']],
       body: filteredTransactions.map((t) => [
@@ -70,14 +84,15 @@ export default function AdminPaymentsPage() {
         t.status.toUpperCase(),
       ]),
       startY: 20,
-      headStyles: { fillColor: [124, 58, 237] }, // Purple theme exactly like the app
-      alternateRowStyles: { fillColor: [248, 250, 252] }, // slate-50
+      headStyles: { fillColor: [124, 58, 237] }, // Purple branding matching the UI primary color
+      alternateRowStyles: { fillColor: [248, 250, 252] }, // Light slate contrast for readability
       styles: { fontSize: 9, cellPadding: 4 }
     });
     
     doc.save('Student_Payments.pdf');
   };
 
+  // Reset all active toolbar filters back to their defaults
   const handleClear = () => {
     setSearchQuery('');
     setStatusFilter('All statuses');
@@ -85,6 +100,7 @@ export default function AdminPaymentsPage() {
     setEndDate('');
   };
 
+  // Helper function to return color-coded badges based on the parsed state machine
   const getStatusPill = (status) => {
     switch (status.toLowerCase()) {
       case 'paid':
