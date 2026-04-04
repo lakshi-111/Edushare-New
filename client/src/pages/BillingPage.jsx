@@ -1,119 +1,367 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend } from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js';
+import { DollarSign, TrendingUp, Clock, Search, ArrowDownToLine } from 'lucide-react';
 import api from '../utils/api';
 import { formatCurrency } from '../utils/formatters';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 export default function BillingPage() {
   const [orders, setOrders] = useState([]);
+  const [stats, setStats] = useState({ totalEarnings: 0, pendingPayments: 0, verifiedPayments: 0 });
+  const [monthlyTrend, setMonthlyTrend] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const { data } = await api.get('/orders/my-orders');
-        setOrders(data.orders || []);
-      } finally {
-        setLoading(false);
-      }
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All statuses');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  // Fetch overview statistics, monthly trend data, and complete order history for the seller
+  const load = async () => {
+    setLoading(true);
+    try {
+      // Execute both API requests in parallel for better performance
+      const [overviewRes, ordersRes] = await Promise.all([
+        api.get('/orders/seller-overview'),
+        api.get('/orders/my-orders')
+      ]);
+      
+      // Update state with overview statistics and monthly trends if available
+      if (overviewRes.data.stats) setStats(overviewRes.data.stats);
+      if (overviewRes.data.monthlyTrend) setMonthlyTrend(overviewRes.data.monthlyTrend);
+      
+      // Update order history
+      setOrders(ordersRes.data.orders || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      // Ensure loading state is turned off regardless of success or failure
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     load();
   }, []);
 
-  const totals = useMemo(() => {
-    const totalSpent = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
-    const pending = orders.filter((o) => o.status !== 'completed').reduce((sum, o) => sum + (o.totalPrice || 0), 0);
-    return { totalSpent, pending, completed: totalSpent - pending };
-  }, [orders]);
-
-  const monthly = useMemo(() => {
-    const map = new Map();
-    const today = new Date();
-    for (let i = 5; i >= 0; i -= 1) {
-      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      map.set(key, { label: d.toLocaleString('default', { month: 'short' }), amount: 0 });
+  // Handle the withdrawal of available (verified) funds calculation
+  const handleWithdraw = async () => {
+    // Check if there are sufficient verified funds to withdraw
+    if (stats.verifiedPayments === 0) {
+      alert('No available balance to withdraw.');
+      return;
     }
+    
+    // Prompt the user to confirm the withdrawal amount
+    const confirm = window.confirm(`Withdraw Rs. ${stats.verifiedPayments}?`);
+    if (!confirm) return;
 
-    orders.forEach((order) => {
-      const d = new Date(order.createdAt || Date.now());
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      if (map.has(key)) map.get(key).amount += order.totalPrice || 0;
+    try {
+      // Proceed with the withdrawal request
+      await api.post('/orders/withdraw');
+      alert('Successfully withdrawn!');
+      
+      // Refresh the dashboard data post-withdrawal to reflect the new balance
+      load();
+    } catch (err) {
+      console.error('Withdrawal failed', err);
+      alert('Withdrawal failed. Please try again.');
+    }
+  };
+
+  // Memoized derived state for filtering order history based on user input
+  // Re-runs only when the order list or filter criteria change
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      // 1. Search Filter: Matches against resource title or order ID
+      const title = order.items?.[0]?.resourceId?.title || order.title || `Resource #${order._id.slice(-8).toUpperCase()}`;
+      if (searchTerm && !title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+
+      // 2. Status Filter: Normalizes multiple backend statuses into user-friendly ones (Paid, Verified, Pending)
+      if (statusFilter !== 'All statuses') {
+        let derivedStatus = 'pending';
+        const s = order.status?.toLowerCase();
+        
+        // Treat completed, paid, and approved statuses as 'paid'
+        if (s === 'completed' || s === 'paid' || s === 'approved') derivedStatus = 'paid';
+        // Keep verified separate as it relates to available balance
+        else if (s === 'verified') derivedStatus = 'verified';
+
+        if (statusFilter.toLowerCase() !== derivedStatus) return false;
+      }
+
+      // 3. Date Range Filter: Verifies if order date falls within the selected bounds
+      if (startDate || endDate) {
+        const orderDate = new Date(order.createdAt);
+        // Exclude if earlier than start date
+        if (startDate && orderDate < new Date(startDate)) return false;
+        
+        // Exclude if later than end date (shifted to include entire end date)
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setDate(end.getDate() + 1); // Expand the boundary to midnight of the next day
+          if (orderDate >= end) return false;
+        }
+      }
+
+      // Include order if it passes all checks
+      return true;
     });
-    return [...map.values()];
-  }, [orders]);
+  }, [orders, searchTerm, statusFilter, startDate, endDate]);
 
   const chartData = {
-    labels: monthly.map((m) => m.label),
-    datasets: [{ label: 'Spent', data: monthly.map((m) => m.amount), borderColor: '#047857', backgroundColor: 'rgba(5,150,105,0.2)', fill: true, tension: 0.4 }]
+    labels: monthlyTrend.map((m) => m.label),
+    datasets: [
+      {
+        label: 'Earnings',
+        data: monthlyTrend.map((m) => m.amount),
+        backgroundColor: '#6b21a8',
+        hoverBackgroundColor: '#581c87',
+        borderRadius: 4,
+        barPercentage: 0.8,
+        categoryPercentage: 0.9,
+      }
+    ]
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { padding: 12, backgroundColor: '#1e293b', titleFont: { size: 13 }, bodyFont: { size: 14 } }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        border: { display: false },
+        grid: { color: '#f8fafc', drawTicks: false },
+        ticks: { color: '#64748b', font: { size: 11 }, padding: 8, callback: (value) => 'Rs. ' + value }
+      },
+      x: {
+        border: { display: false },
+        grid: { display: false, drawTicks: false },
+        ticks: { color: '#64748b', font: { size: 11 }, padding: 8 }
+      }
+    }
+  };
+
+  const getStatusPill = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+      case 'paid':
+      case 'approved':
+        return (
+          <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-emerald-600 uppercase">
+            Paid
+          </span>
+        );
+      case 'verified':
+        return (
+          <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-blue-600 uppercase">
+            Verified
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-orange-600 uppercase">
+            Pending
+          </span>
+        );
+    }
+  };
+
+  // Generates and downloads a custom PDF report of the currently filtered transaction history
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    
+    // Setup Document header and title
+    doc.setFontSize(18);
+    doc.text('Transaction History', 14, 22);
+
+    // Setup Table headers
+    const tableColumn = ["Date", "Resource", "Amount", "Status"];
+    const tableRows = [];
+
+    // Map the currently filtered orders into formatted rows suitable for the jspdf-autotable plugin
+    filteredOrders.forEach((order) => {
+      // Extract formatted date
+      const date = new Date(order.createdAt).toISOString().split('T')[0];
+      // Extract resource title, falling back to a formatted ID if necessary
+      const title = order.items?.[0]?.resourceId?.title || order.title || `Resource #${order._id.slice(-8).toUpperCase()}`;
+      // Format currency (Rs.)
+      const amount = formatCurrency(order.totalPrice);
+      
+      // Compute human-readable normalized status
+      let derivedStatus = 'Pending';
+      const s = order.status?.toLowerCase();
+      if (s === 'completed' || s === 'paid' || s === 'approved') derivedStatus = 'Paid';
+      else if (s === 'verified') derivedStatus = 'Verified';
+
+      tableRows.push([date, title, amount, derivedStatus]);
+    });
+
+    // Generate table dynamically with autotable passing defined rows and customized styling
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 30,
+      theme: 'grid',
+      styles: { fontSize: 10, cellPadding: 3 },
+      headStyles: { fillColor: [107, 33, 168] }, // Mirrors app theme (purple-800)
+    });
+
+    // Save and download file with timestamped name
+    doc.save(`purchasing_history_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   return (
-    <section>
-      <div className="mb-5">
-        <h1 className="text-[44px] font-bold tracking-tight text-slate-900">Billing Dashboard</h1>
-        <p className="mt-2 text-base text-slate-500">Manage your purchases, payment history and credentials.</p>
+    <section className="mx-auto max-w-8xl p-4 sm:p-6 lg:ml-8 lg:p-8">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Billing Dashboard</h1>
+          <p className="mt-1 text-sm text-slate-500">Manage your earnings and transactions</p>
+        </div>
+        <button 
+          onClick={handleWithdraw}
+          className="inline-flex items-center gap-2 rounded-lg bg-purple-800 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-purple-900 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+        >
+          <ArrowDownToLine className="h-4 w-4" />
+          Withdraw Earnings
+        </button>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs uppercase tracking-widest text-slate-400">Total Spent</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{formatCurrency(totals.totalSpent)}</p>
-        </div>
-        <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs uppercase tracking-widest text-slate-400">Completed</p>
-          <p className="mt-2 text-3xl font-bold text-emerald-600">{formatCurrency(totals.completed)}</p>
-        </div>
-        <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs uppercase tracking-widest text-slate-400">Pending</p>
-          <p className="mt-2 text-3xl font-bold text-amber-600">{formatCurrency(totals.pending)}</p>
-        </div>
-      </div>
-
-      <div className="mt-5 grid gap-4 xl:grid-cols-[1.1fr,0.9fr]">
-        <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-semibold text-slate-900">Monthly Spend Trend</h2>
-          <div className="mt-4 h-72">
-            <Line data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
+      <div className="grid gap-5 md:grid-cols-3">
+        <div className="rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm flex justify-between items-start transition-all hover:shadow-md">
+          <div>
+            <p className="text-sm font-medium text-slate-500">Total Earnings</p>
+            <p className="mt-2 text-3xl sm:text-4xl font-bold text-slate-900">{formatCurrency(stats.totalEarnings)}</p>
+          </div>
+          <div className="rounded-xl bg-purple-50 p-3">
+            <DollarSign className="h-6 w-6 text-purple-600" />
           </div>
         </div>
 
-        <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-xl font-semibold text-slate-900">Payment Stats</h2>
-          <p className="mt-3 text-sm text-slate-600">Total orders: <strong>{orders.length}</strong></p>
-          <p className="mt-1 text-sm text-slate-600">Pending orders: <strong>{orders.filter((o) => o.status !== 'completed').length}</strong></p>
-          <p className="mt-1 text-sm text-slate-600">Completed orders: <strong>{orders.filter((o) => o.status === 'completed').length}</strong></p>
+        <div className="rounded-[20px] border border-purple-100 bg-purple-50/40 p-6 shadow-sm flex justify-between items-start transition-all hover:shadow-md">
+          <div>
+            <p className="text-sm font-medium text-slate-500">Available Balance</p>
+            <p className="mt-2 text-3xl sm:text-4xl font-bold text-slate-900">{formatCurrency(stats.verifiedPayments)}</p>
+            <p className="mt-1.5 text-xs font-medium text-purple-600">Ready to withdraw</p>
+          </div>
+          <div className="rounded-xl bg-purple-100 p-3 flex-shrink-0">
+            <TrendingUp className="h-6 w-6 text-purple-700" />
+          </div>
+        </div>
+
+        <div className="rounded-[20px] border border-orange-100 bg-orange-50/40 p-6 shadow-sm flex justify-between items-start transition-all hover:shadow-md">
+          <div>
+            <p className="text-sm font-medium text-slate-500">Pending Balance</p>
+            <p className="mt-2 text-3xl sm:text-4xl font-bold text-slate-900">{formatCurrency(stats.pendingPayments)}</p>
+            <p className="mt-1.5 text-xs font-medium text-orange-600">Awaiting verification</p>
+          </div>
+          <div className="rounded-xl bg-orange-100 p-3 flex-shrink-0">
+            <Clock className="h-6 w-6 text-orange-600" />
+          </div>
         </div>
       </div>
 
-      <div className="mt-5 rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-xl font-semibold text-slate-900">Transaction History</h2>
+      <div className="mt-8 rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-900">Monthly Earnings</h2>
+        <div className="mt-6 h-[300px] w-full">
+          <Bar data={chartData} options={chartOptions} />
+        </div>
+      </div>
+
+      <div className="mt-8 rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h2 className="text-lg font-bold text-slate-900">Purchasing History</h2>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={handleDownloadPDF}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1"
+            >
+              Download PDF
+            </button>
+            <button 
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('All statuses');
+                setStartDate('');
+                setEndDate('');
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-1"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[240px] relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by resource name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50/50 pl-10 pr-4 py-2.5 text-sm focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all shadow-sm"
+            />
+          </div>
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-medium min-w-[140px] shadow-sm"
+          >
+            <option>All statuses</option>
+            <option>Paid</option>
+            <option>Verified</option>
+            <option>Pending</option>
+          </select>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-medium shadow-sm"
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-all font-medium shadow-sm"
+          />
+        </div>
 
         {loading ? (
-          <div className="mt-4 text-sm text-slate-500">Loading...</div>
-        ) : !orders.length ? (
-          <div className="mt-4 text-sm text-slate-500">No orders found.</div>
+          <div className="mt-8 text-sm text-slate-500 text-center py-10">Loading orders...</div>
+        ) : !filteredOrders.length ? (
+          <div className="mt-8 text-sm text-slate-500 text-center py-10 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">No purchases found.</div>
         ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-slate-600">
-                <tr>
-                  <th className="px-3 py-2">Date</th>
-                  <th className="px-3 py-2">Order #</th>
-                  <th className="px-3 py-2">Total</th>
-                  <th className="px-3 py-2">Status</th>
+          <div className="mt-6 overflow-x-auto">
+            <table className="min-w-full text-left text-sm whitespace-nowrap">
+              <thead>
+                <tr className="border-b border-slate-200">
+                  <th className="pb-4 pr-4 font-semibold text-slate-600">Date</th>
+                  <th className="pb-4 px-4 font-semibold text-slate-600">Resource</th>
+                  <th className="pb-4 px-4 font-semibold text-slate-600">Amount</th>
+                  <th className="pb-4 pl-4 font-semibold text-slate-600">Status</th>
                 </tr>
               </thead>
-              <tbody>
-                {orders.map((order) => (
-                  <tr key={order._id} className="border-t border-slate-200">
-                    <td className="px-3 py-2">{new Date(order.createdAt).toLocaleDateString()}</td>
-                    <td className="px-3 py-2">{order._id.slice(-8).toUpperCase()}</td>
-                    <td className="px-3 py-2">{formatCurrency(order.totalPrice)}</td>
-                    <td className="px-3 py-2">{order.status}</td>
+              <tbody className="divide-y divide-slate-100">
+                {filteredOrders.map((order) => (
+                  <tr key={order._id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="py-4 pr-4 text-slate-500">{new Date(order.createdAt).toISOString().split('T')[0]}</td>
+                    <td className="py-4 px-4 font-medium text-slate-800">
+                      {order.items?.[0]?.resourceId?.title || order.title || `Resource #${order._id.slice(-8).toUpperCase()}`}
+                    </td>
+                    <td className="py-4 px-4 font-medium text-slate-700">{formatCurrency(order.totalPrice)}</td>
+                    <td className="py-4 pl-4">
+                      {getStatusPill(order.status)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

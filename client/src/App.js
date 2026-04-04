@@ -34,6 +34,7 @@ import InquiriesPage from './pages/InquiriesPage';
 import PaymentPage from './pages/PaymentPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import BillingPage from './pages/BillingPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 function PublicLayout() {
   return (
@@ -75,6 +76,7 @@ export default function App() {
               <Route path="/library" element={<LibraryPage />} />
               <Route path="/orders" element={<Navigate to="/billing" replace />} />
               <Route path="/billing" element={<BillingPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/analytics" element={<StudentPerformancePage />} />
               <Route path="/payment" element={<PaymentPage />} />
               <Route path="/payment/success" element={<PaymentSuccessPage />} />

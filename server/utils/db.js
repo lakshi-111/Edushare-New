@@ -12,7 +12,19 @@ async function connectDatabase() {
     console.log(`✅ MongoDB connected: ${providedUri ? 'external database' : 'in-memory database'}`);
   } catch (error) {
     console.error('❌ MongoDB connection failed:', error.message);
-    throw error;
+    if (providedUri) {
+      console.log('Attempting fallback to in-memory database...');
+      try {
+        const fallbackUri = await startMemoryServer();
+        await mongoose.connect(fallbackUri);
+        console.log('✅ Fallback: MongoDB connected to in-memory database');
+      } catch (fallbackError) {
+        console.error('❌ Fallback MongoDB connection failed:', fallbackError.message);
+        throw fallbackError;
+      }
+    } else {
+      throw error;
+    }
   }
 }
 

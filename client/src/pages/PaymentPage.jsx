@@ -3,6 +3,15 @@ import { useMemo, useState } from 'react';
 import { CreditCard, Shield, Wallet } from 'lucide-react';
 import api from '../utils/api';
 import { formatCurrency } from '../utils/formatters';
+import { z } from 'zod';
+
+const paymentSchema = z.object({
+  cardNumber: z.string()
+    .transform((val) => val.replace(/\s+/g, ''))
+    .pipe(z.string().regex(/^\d{16}$/, 'Must be 16 digits')),
+  expiry: z.string().regex(/^(0[1-9]|1[0-2])\/\d{2}$/, 'Format: MM/YY'),
+  cvv: z.string().regex(/^\d{3}$/, 'Must be 3 digits')
+});
 
 export default function PaymentPage() {
   const location = useLocation();
@@ -14,6 +23,7 @@ export default function PaymentPage() {
   const [cvv, setCvv] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const total = useMemo(() => items.reduce((acc, item) => acc + (Number(item.price) || 0), 0), [items]);
 
@@ -31,15 +41,65 @@ export default function PaymentPage() {
     );
   }
 
+  const validateField = (field, value) => {
+    if (!value) {
+      setFieldErrors(prev => ({ ...prev, [field]: undefined }));
+      return;
+    }
+    const result = paymentSchema.pick({ [field]: true }).safeParse({ [field]: value });
+    setFieldErrors(prev => ({
+      ...prev,
+      [field]: result.success ? undefined : result.error.flatten().fieldErrors[field]?.[0]
+    }));
+  };
+
+  const handleCardNumberChange = (e) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 16);
+    const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+    setCardNumber(formatted);
+    validateField('cardNumber', formatted);
+  };
+
+  const handleExpiryChange = (e) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+    let formatted = digits;
+    if (digits.length >= 2) {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    }
+    setExpiry(formatted);
+    validateField('expiry', formatted);
+  };
+
+  const handleCvvChange = (e) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+    setCvv(val);
+    validateField('cvv', val);
+  };
+
   async function handlePay() {
     setBusy(true);
     setError('');
+    setFieldErrors({});
+
+    if (method === 'credit-card') {
+      const result = paymentSchema.safeParse({ cardNumber, expiry, cvv });
+      if (!result.success) {
+        const errors = result.error.flatten().fieldErrors;
+        setFieldErrors({
+          cardNumber: errors.cardNumber?.[0],
+          expiry: errors.expiry?.[0],
+          cvv: errors.cvv?.[0]
+        });
+        setBusy(false);
+        return;
+      }
+    }
 
     try {
       const response = await api.post('/payments/process', {
         items: items.map((item) => ({ resourceId: item._id })),
         paymentMethod: method,
-        card: { number: cardNumber.trim(), expiry: expiry.trim(), cvv: cvv.trim() }
+        card: method === 'credit-card' ? { number: cardNumber.replace(/\s+/g, ''), expiry: expiry.trim(), cvv: cvv.trim() } : undefined
       });
 
       navigate('/payment/success', { state: { total: total, order: response.data.order } });
@@ -93,15 +153,18 @@ export default function PaymentPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="space-y-1 text-sm text-slate-600">
                   Card Number
-                  <input type="text" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} placeholder="1234 5678 9012 3456" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500" />
+                  <input type="text" value={cardNumber} onChange={handleCardNumberChange} placeholder="1234 5678 9012 3456" className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${fieldErrors.cardNumber ? 'border-rose-400 focus:border-rose-500' : 'border-slate-300 focus:border-brand-500'}`} />
+                  {fieldErrors.cardNumber && <p className="text-xs text-rose-500">{fieldErrors.cardNumber}</p>}
                 </label>
                 <label className="space-y-1 text-sm text-slate-600">
                   Expiry Date
-                  <input type="text" value={expiry} onChange={(e) => setExpiry(e.target.value)} placeholder="MM/YY" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500" />
+                  <input type="text" value={expiry} onChange={handleExpiryChange} placeholder="MM/YY" className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${fieldErrors.expiry ? 'border-rose-400 focus:border-rose-500' : 'border-slate-300 focus:border-brand-500'}`} />
+                  {fieldErrors.expiry && <p className="text-xs text-rose-500">{fieldErrors.expiry}</p>}
                 </label>
                 <label className="space-y-1 text-sm text-slate-600 sm:col-span-2">
                   CVV
-                  <input type="password" value={cvv} onChange={(e) => setCvv(e.target.value)} placeholder="***" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500" />
+                  <input type="password" value={cvv} onChange={handleCvvChange} placeholder="***" className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${fieldErrors.cvv ? 'border-rose-400 focus:border-rose-500' : 'border-slate-300 focus:border-brand-500'}`} />
+                  {fieldErrors.cvv && <p className="text-xs text-rose-500">{fieldErrors.cvv}</p>}
                 </label>
               </div>
               <p className="mt-3 text-xs text-slate-500"><Shield size={14} className="inline-block mr-1" />Secure encrypted payment</p>

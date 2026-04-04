@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema(
     uploadCount: { type: Number, default: 0 },
     totalDownloads: { type: Number, default: 0 },
     totalEarnings: { type: Number, default: 0 },
+    withdrawnAmount: { type: Number, default: 0 },
     averageRating: { type: Number, default: 0 }
   },
   { timestamps: true }
