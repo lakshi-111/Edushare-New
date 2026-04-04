@@ -155,6 +155,7 @@ export default function ResourceDetailPage() {
                 <div>
                   <p className="font-semibold text-slate-900">Uploaded by {resource.uploaderId?.name}</p>
                   <p className="text-sm text-slate-500">{resource.uploaderId?.badge || 'Bronze'} contributor</p>
+                  <p className="text-sm text-slate-500">Rating tier: {resource.uploaderId?.ratingBadge || 'Unranked'}</p>
                 </div>
               </div>
 

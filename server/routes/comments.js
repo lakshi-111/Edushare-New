@@ -17,6 +17,9 @@ router.get('/history', auth, getCommentHistory);
 router.get('/:resourceId', getResourceComments);
 router.put('/:id', auth, updateComment);
 router.delete('/:id', auth, deleteComment);
-router.post('/:id/report', auth, reportComment);
+router.post('/:id/report', auth, [
+  body('reason').isIn(['bad language', 'wrong information', 'spam', 'harassment', 'other']).withMessage('Invalid reason.'),
+  body('description').optional().trim().isLength({ max: 500 }).withMessage('Description too long.')
+], reportComment);
 
 module.exports = router;

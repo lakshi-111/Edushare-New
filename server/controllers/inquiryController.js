@@ -85,4 +85,14 @@ async function answerInquiry(req, res) {
   res.json({ message: 'Inquiry answered.', inquiry });
 }
 
-module.exports = { createInquiry, getResourceInquiries, getMyInquiries, getReceivedInquiries, answerInquiry };
+async function resolveInquiry(req, res) {
+  const inquiry = await Inquiry.findById(req.params.inquiryId);
+  if (!inquiry) return res.status(404).json({ message: 'Inquiry not found.' });
+
+  inquiry.status = 'Closed';
+  await inquiry.save();
+
+  res.json({ message: 'Inquiry resolved.', inquiry });
+}
+
+module.exports = { createInquiry, getResourceInquiries, getMyInquiries, getReceivedInquiries, answerInquiry, resolveInquiry };
