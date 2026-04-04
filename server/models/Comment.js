@@ -7,13 +7,7 @@ const commentSchema = new mongoose.Schema(
     content: { type: String, required: true, trim: true, maxlength: 1000 },
     parentCommentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment', default: null },
     isReported: { type: Boolean, default: false },
-    isDeleted: { type: Boolean, default: false },
-    status: { type: String, enum: ['approved', 'flagged', 'reported', 'deleted', 'edited'], default: 'approved' },
-    reportCount: { type: Number, default: 0 },
-    sentiment: { type: String, enum: ['positive', 'neutral', 'negative'], default: 'neutral' },
-    editedContent: { type: String }, // Original content if edited
-    editedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Admin who edited
-    editedAt: { type: Date }
+    isDeleted: { type: Boolean, default: false }
   },
   { timestamps: true }
 );

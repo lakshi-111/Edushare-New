@@ -40,8 +40,8 @@ export default function StudentProfilePage() {
           {[
             ['Role', user?.role],
             ['Badge', user?.badge],
-            ['Rating badge', user?.ratingBadge || 'Unranked'],
-            ['Uploads', user?.uploadCount || 0]
+            ['Uploads', user?.uploadCount || 0],
+            ['Earnings', formatCurrency(user?.totalEarnings || 0)]
           ].map(([label, value]) => (
             <div key={label} className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
               <p className="text-sm text-slate-300">{label}</p>

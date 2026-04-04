@@ -9,18 +9,11 @@ const userSchema = new mongoose.Schema(
     role: { type: String, enum: ['student', 'admin'], default: 'student' },
     isBlocked: { type: Boolean, default: false },
     badge: { type: String, enum: ['Bronze', 'Silver', 'Gold'], default: 'Bronze' },
-    ratingBadge: { type: String, enum: ['Unranked', 'Bronze', 'Silver', 'Gold', 'Platinum'], default: 'Unranked' },
-    studentId: { type: String, trim: true, default: '' },
-    faculty: { type: String, trim: true, default: '' },
-    academicYear: { type: String, trim: true, default: '' },
     avatar: { type: String, default: '' },
     uploadCount: { type: Number, default: 0 },
     totalDownloads: { type: Number, default: 0 },
     totalEarnings: { type: Number, default: 0 },
-    averageRating: { type: Number, default: 0 },
-    banned: { type: Boolean, default: false },
-    violationCount: { type: Number, default: 0 },
-    strikes: { type: Number, default: 0 }
+    averageRating: { type: Number, default: 0 }
   },
   { timestamps: true }
 );

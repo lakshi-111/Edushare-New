@@ -1,7 +1,6 @@
-const Rating = require('../models/Rating');
 const Resource = require('../models/Resource');
+const Order = require('../models/Order');
 const User = require('../models/User');
-const { recalculateUploaderRating } = require('../utils/resourceHelpers');
 
 function resourceQueryFromReq(query) {
   const q = { isPublic: true, isApproved: { $ne: false } };
@@ -33,7 +32,7 @@ async function getResources(req, res) {
   const query = resourceQueryFromReq(req.query);
   const total = await Resource.countDocuments(query);
   const resources = await Resource.find(query)
-    .populate('uploaderId', 'name email badge ratingBadge')
+    .populate('uploaderId', 'name email badge')
     .sort({ [sortBy]: sortOrder })
     .skip(skip)
     .limit(limit);
@@ -50,7 +49,7 @@ async function getResources(req, res) {
 }
 
 async function getResourceById(req, res) {
-  const resource = await Resource.findById(req.params.id).populate('uploaderId', 'name email badge ratingBadge');
+  const resource = await Resource.findById(req.params.id).populate('uploaderId', 'name email badge');
   if (!resource) return res.status(404).json({ message: 'Resource not found.' });
   res.json({ resource });
 }
@@ -71,7 +70,7 @@ async function createResource(req, res) {
   req.user.updateBadge();
   await req.user.save();
 
-  const populated = await Resource.findById(resource._id).populate('uploaderId', 'name email badge ratingBadge');
+  const populated = await Resource.findById(resource._id).populate('uploaderId', 'name email badge');
   res.status(201).json({ message: 'Resource created successfully.', resource: populated });
 }
 
@@ -103,7 +102,7 @@ async function updateResource(req, res) {
   }
 
   await resource.save();
-  const populated = await Resource.findById(resource._id).populate('uploaderId', 'name email badge ratingBadge');
+  const populated = await Resource.findById(resource._id).populate('uploaderId', 'name email badge');
   res.json({ message: 'Resource updated.', resource: populated });
 }
 
@@ -115,7 +114,6 @@ async function deleteResource(req, res) {
     return res.status(403).json({ message: 'You cannot delete this resource.' });
   }
 
-  await Rating.deleteMany({ resourceId: resource._id });
   await resource.deleteOne();
 
   const owner = await User.findById(resource.uploaderId);
@@ -123,7 +121,6 @@ async function deleteResource(req, res) {
     owner.uploadCount = Math.max(0, owner.uploadCount - 1);
     owner.updateBadge();
     await owner.save();
-    await recalculateUploaderRating(owner._id);
   }
 
   res.json({ message: 'Resource deleted.' });
@@ -154,7 +151,7 @@ async function downloadResource(req, res) {
 
 async function getMyResources(req, res) {
   const resources = await Resource.find({ uploaderId: req.user._id })
-    .populate('uploaderId', 'name email badge ratingBadge')
+    .populate('uploaderId', 'name email badge')
     .sort({ updatedAt: -1, createdAt: -1 });
 
   res.json({ resources });

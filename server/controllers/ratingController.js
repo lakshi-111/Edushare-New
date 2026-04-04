@@ -8,15 +8,11 @@ async function createOrUpdateRating(req, res) {
   const resource = await Resource.findById(resourceId);
   if (!resource) return res.status(404).json({ message: 'Resource not found.' });
 
-  let doc;
-  try {
-    doc = await Rating.create({ resourceId, userId: req.user._id, rating });
-  } catch (error) {
-    if (error.code === 11000) {
-      return res.status(409).json({ message: 'You have already rated this resource.' });
-    }
-    return res.status(400).json({ message: 'Rating could not be saved.', error: error.message });
-  }
+  const doc = await Rating.findOneAndUpdate(
+    { resourceId, userId: req.user._id },
+    { rating },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
 
   await recalculateResourceRating(resourceId);
 
@@ -35,7 +31,7 @@ async function createOrUpdateRating(req, res) {
 
 async function getResourceRatings(req, res) {
   const ratings = await Rating.find({ resourceId: req.params.resourceId })
-    .populate('userId', 'name badge ratingBadge')
+    .populate('userId', 'name badge')
     .sort({ createdAt: -1 });
 
   const summary = {

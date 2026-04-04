@@ -3,7 +3,7 @@ const User = require('../models/User');
 const { createNotification } = require('../utils/notifications');
 
 async function discoverUsers(req, res) {
-  const users = await User.find({ _id: { $ne: req.user._id } }).select('name email badge ratingBadge role uploadCount totalDownloads averageRating');
+  const users = await User.find({ _id: { $ne: req.user._id } }).select('name email badge role uploadCount totalDownloads averageRating');
   res.json({ users });
 }
 
@@ -44,8 +44,8 @@ async function getConnections(req, res) {
   const connections = await Connection.find({
     $or: [{ requesterId: req.user._id }, { recipientId: req.user._id }]
   })
-    .populate('requesterId', 'name email badge ratingBadge')
-    .populate('recipientId', 'name email badge ratingBadge')
+    .populate('requesterId', 'name email badge')
+    .populate('recipientId', 'name email badge')
     .sort({ createdAt: -1 });
 
   res.json({ connections });

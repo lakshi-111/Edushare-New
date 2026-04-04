@@ -9,10 +9,6 @@ function authPayload(user) {
     email: user.email,
     role: user.role,
     badge: user.badge,
-    ratingBadge: user.ratingBadge,
-    studentId: user.studentId || '',
-    faculty: user.faculty || '',
-    academicYear: user.academicYear || '',
     uploadCount: user.uploadCount,
     totalDownloads: user.totalDownloads,
     totalEarnings: user.totalEarnings,
@@ -65,8 +61,6 @@ async function login(req, res) {
   if (!ok) return res.status(401).json({ message: 'Invalid email or password.' });
 
   if (user.isBlocked) return res.status(403).json({ message: 'Your account has been blocked. Contact support.' });
-
-  if (user.banned) return res.status(403).json({ message: 'Your account has been banned due to violations of community guidelines.' });
 
   return res.json({
     message: 'Login successful.',
