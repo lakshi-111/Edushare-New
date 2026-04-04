@@ -13,7 +13,11 @@ const userSchema = new mongoose.Schema(
     uploadCount: { type: Number, default: 0 },
     totalDownloads: { type: Number, default: 0 },
     totalEarnings: { type: Number, default: 0 },
-    averageRating: { type: Number, default: 0 }
+    averageRating: { type: Number, default: 0 },
+    studentIdNumber: { type: String, default: '', trim: true, maxlength: 40 },
+    faculty: { type: String, default: '', trim: true, maxlength: 80 },
+    year: { type: String, default: '', trim: true, maxlength: 20 },
+    semester: { type: String, default: '', trim: true, maxlength: 20 }
   },
   { timestamps: true }
 );
