@@ -60,12 +60,6 @@ export default function SignInPage() {
           <button className="w-full rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white hover:bg-brand-700">Sign in</button>
         </form>
 
-        <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-          <p className="font-semibold text-slate-800">Seed accounts</p>
-          <p>Admin: admin@edushare.com / Admin123</p>
-          <p>Student: nimali@example.com / Student123</p>
-        </div>
-
         <p className="mt-6 text-sm text-slate-600">Don&apos;t have an account? <Link className="font-semibold text-brand-700" to="/signup">Create one</Link></p>
       </div>
     </main>
