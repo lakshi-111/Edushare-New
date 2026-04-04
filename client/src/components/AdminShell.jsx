@@ -72,7 +72,7 @@ export default function AdminShell() {
       <div className="lg:pl-[210px]">
         <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4 sm:px-6 lg:px-8">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Admin Dashboard</h1>
+            <h1 className="text-xl font-bold text-slate-900">Welcome Admin </h1>
             <p className="text-sm text-slate-500">Manage users, resources, comments, payments and reports</p>
           </div>
 
