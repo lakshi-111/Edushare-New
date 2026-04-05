@@ -6,7 +6,7 @@ import { EDU_SHARE_FACULTIES } from '../utils/faculties';
 
 export default function SignUpPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, refreshProfile } = useAuth();
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -70,6 +70,7 @@ export default function SignUpPage() {
         role: form.role
       });
       login(data);
+      await refreshProfile().catch(() => {});
       navigate(data.user.role === 'admin' ? '/admin/dashboard' : '/browse');
     } catch (err) {
       const body = err.response?.data;
