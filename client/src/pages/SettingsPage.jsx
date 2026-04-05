@@ -7,6 +7,7 @@ import { EDU_SHARE_FACULTIES } from '../utils/faculties';
 
 export default function SettingsPage() {
   const { user, login } = useAuth();
+
   const [profileForm, setProfileForm] = useState({
     name: user?.name || '',
     studentIdNumber: user?.studentIdNumber || '',
@@ -30,6 +31,10 @@ export default function SettingsPage() {
 
   const stats = useMemo(() => [
     ['Account Role', user?.role || 'student'],
+    ['Student ID Number', user?.studentIdNumber || 'Not provided'],
+    ['Faculty', user?.faculty || 'Not provided'],
+    ['Year', user?.year || 'Not provided'],
+    ['Semester', user?.semester || 'Not provided'],
     ['Member Since', formatDate(user?.createdAt)],
     ['Uploads', user?.uploadCount || 0],
     ['Total Earnings', formatCurrency(user?.totalEarnings || 0)]
@@ -64,6 +69,12 @@ export default function SettingsPage() {
   async function deleteStudentRecord() {
     setMessage('');
     setError('');
+
+    const confirmed = window.confirm('Are you sure you want to delete your student record? This action cannot be undone.');
+    if (!confirmed) {
+      return;
+    }
+
     try {
       const { data } = await api.delete('/auth/profile/student-record');
       login({ user: data.user, token: localStorage.getItem('token') });
@@ -119,6 +130,7 @@ export default function SettingsPage() {
               <UserCircle2 size={18} className="text-brand-600" />
               <h2 className="text-xl font-semibold text-slate-900">Profile Information</h2>
             </div>
+
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <label>
                 <p className="mb-2 text-sm font-semibold text-slate-900">Full Name</p>
