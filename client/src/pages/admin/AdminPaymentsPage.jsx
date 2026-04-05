@@ -29,14 +29,18 @@ export default function AdminPaymentsPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-3xl font-bold text-slate-900">Payments & Transactions</h2>
-        <p className="mt-2 text-sm text-slate-500">Track orders, revenue, and payout requests.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-brand-600">Payments & Transactions</h2>
+            <p className="mt-2 text-sm text-slate-500">Track orders, revenue, and payout requests.</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         {[
           { label: 'Total Orders', value: orders.length },
-          { label: 'Total Revenue', value: `$${revenue.toFixed(2)}` },
+          { label: 'Total Revenue', value: `Rs ${revenue.toFixed(0)}` },
           { label: 'Pending Orders', value: pendingCount }
         ].map((item) => (
           <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -63,7 +67,7 @@ export default function AdminPaymentsPage() {
                 <tr key={order._id} className="border-t border-slate-200">
                   <td className="px-3 py-2">{order._id.slice(-6).toUpperCase()}</td>
                   <td className="px-3 py-2">{order.userId?.name || order.userId?.email || 'Unknown'}</td>
-                  <td className="px-3 py-2">${(order.totalPrice || 0).toFixed(2)}</td>
+                  <td className="px-3 py-2">Rs {(order.totalPrice || 0).toFixed(0)}</td>
                   <td className={`px-3 py-2 font-semibold ${order.status === 'completed' ? 'text-emerald-600' : 'text-amber-600'}`}>
                     {order.status || 'Pending'}
                   </td>

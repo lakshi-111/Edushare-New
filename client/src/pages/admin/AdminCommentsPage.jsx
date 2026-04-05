@@ -34,8 +34,12 @@ export default function AdminCommentsPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-3xl font-bold text-slate-900">Comments & Reviews</h2>
-        <p className="mt-2 text-sm text-slate-500">Track and moderate user-submitted comments and ratings.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-brand-600">Comments & Reviews</h2>
+            <p className="mt-2 text-sm text-slate-500">Track and moderate user-submitted comments and ratings.</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

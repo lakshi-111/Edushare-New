@@ -58,4 +58,12 @@ async function sendRejectionEmail({ to, name, resourceTitle, reason }) {
   return sendEmail({ to, subject, text, html });
 }
 
-module.exports = { sendEmail, sendWelcomeEmail, sendWarningEmail, sendRejectionEmail };
+async function sendApprovalEmail({ to, name, resourceTitle }) {
+  const subject = 'Your EduShare Resource Has Been Approved!';
+  const text = `Hello ${name},\n\nGreat news! Your resource "${resourceTitle}" has been approved and is now live on the EduShare platform. Students can now search for and purchase your resource.\n\nVisit your dashboard to track downloads and earnings.\n\nThanks,\nThe EduShare Team`;
+  const html = `<p>Hello ${name},</p><p>Great news! Your resource <strong>"${resourceTitle}"</strong> has been approved and is now live on the EduShare platform. Students can now search for and purchase your resource.</p><p>Visit your dashboard to track downloads and earnings.</p><p>Thanks,<br />The EduShare Team</p>`;
+
+  return sendEmail({ to, subject, text, html });
+}
+
+module.exports = { sendEmail, sendWelcomeEmail, sendWarningEmail, sendRejectionEmail, sendApprovalEmail };

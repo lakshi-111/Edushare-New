@@ -69,7 +69,7 @@ export default function SignUpPage() {
         semester: form.semester,
         role: form.role
       });
-      login(data);
+      login({ user: data.user, token: data.token });
       navigate(data.user.role === 'admin' ? '/admin/dashboard' : '/browse');
     } catch (err) {
       const body = err.response?.data;

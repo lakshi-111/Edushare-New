@@ -174,8 +174,12 @@ export default function AdminResourcesPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-3xl font-bold text-slate-900">Resource Management</h2>
-        <p className="mt-2 text-sm text-slate-500">Review, approve/reject, and maintain uploaded course resources.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-brand-600">Resource Management</h2>
+            <p className="mt-2 text-sm text-slate-500">Review, approve/reject, and maintain uploaded course resources.</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -324,7 +328,7 @@ export default function AdminResourcesPage() {
                         {resource.verificationStatus || 'pending'}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-slate-900">{Number(resource.price || 0) === 0 ? 'Free' : `$${Number(resource.price).toFixed(2)}`}</td>
+                    <td className="px-3 py-2 text-slate-900">{Number(resource.price || 0) === 0 ? 'Free' : `Rs ${Number(resource.price).toFixed(0)}`}</td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1">
                         {resource.verificationStatus === 'pending' && (

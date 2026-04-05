@@ -29,11 +29,9 @@ export default function Navbar() {
         </Link>
 
         <nav className="hidden items-center gap-5 md:flex">
-          <NavLink to="/home" className={linkClass}>Resources</NavLink>
           {isAuthenticated && <NavLink to="/upload" className={linkClass}>Manage resources</NavLink>}
           {isAuthenticated && <NavLink to="/earnings" className={linkClass}>Earnings</NavLink>}
           {isAuthenticated && <NavLink to="/profile" className={linkClass}>Profile</NavLink>}
-          <NavLink to="/contact" className={linkClass}>Contact</NavLink>
           {user?.role === 'admin' && <NavLink to="/admin/dashboard" className={linkClass}>Admin</NavLink>}
         </nav>
 

@@ -18,7 +18,7 @@ router.get('/:resourceId', getResourceComments);
 router.put('/:id', auth, updateComment);
 router.delete('/:id', auth, deleteComment);
 router.post('/:id/report', auth, [
-  body('reason').isIn(['bad language', 'wrong information', 'spam', 'harassment', 'other']).withMessage('Invalid reason.'),
+  body('reason').isIn(['incorrect_or_misleading_information', 'inappropriate_language', 'spam_or_advertising', 'harassment_or_personal_attack', 'other']).withMessage('Invalid reason.'),
   body('description').optional().trim().isLength({ max: 500 }).withMessage('Description too long.')
 ], reportComment);
 

@@ -10,16 +10,16 @@ export default function AdminUsersPage() {
   const [query, setQuery] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterFaculty, setFilterFaculty] = useState('all');
-  const [filterAcademicYear, setFilterAcademicYear] = useState('all');
+  const [filterYear, setFilterYear] = useState('all');
   const [filterRatingBadge, setFilterRatingBadge] = useState('all');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
-    studentId: '',
+    studentIdNumber: '',
     faculty: '',
-    academicYear: '',
+    year: '',
     role: 'student'
   });
   const [formLoading, setFormLoading] = useState(false);
@@ -32,7 +32,7 @@ export default function AdminUsersPage() {
         q: query || undefined,
         role: filterRole !== 'all' ? filterRole : undefined,
         faculty: filterFaculty !== 'all' ? filterFaculty : undefined,
-        academicYear: filterAcademicYear !== 'all' ? filterAcademicYear : undefined,
+        year: filterYear !== 'all' ? filterYear : undefined,
         ratingBadge: filterRatingBadge !== 'all' ? filterRatingBadge : undefined
       };
       const { data } = await api.get('/admin/users', { params });
@@ -43,7 +43,7 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [query, filterRole, filterFaculty, filterAcademicYear, filterRatingBadge]);
+  }, [query, filterRole, filterFaculty, filterYear, filterRatingBadge]);
 
   useEffect(() => {
     loadUsers();
@@ -55,7 +55,7 @@ export default function AdminUsersPage() {
   );
 
   const academicYearOptions = useMemo(
-    () => ['all', ...Array.from(new Set(users.map((item) => item.academicYear).filter(Boolean)))],
+    () => ['all', ...Array.from(new Set(users.map((item) => item.year).filter(Boolean)))],
     [users]
   );
 
@@ -71,7 +71,7 @@ export default function AdminUsersPage() {
 
     try {
       await api.post('/admin/users', form);
-      setForm({ name: '', email: '', password: '', studentId: '', faculty: '', academicYear: '', role: 'student' });
+      setForm({ name: '', email: '', password: '', studentIdNumber: '', faculty: '', year: '', role: 'student' });
       setShowForm(false);
       await loadUsers();
     } catch (error) {
@@ -108,7 +108,7 @@ export default function AdminUsersPage() {
       <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-3xl font-bold text-slate-900">User Management</h2>
+            <h2 className="text-2xl font-bold text-brand-600">User Management</h2>
             <p className="mt-2 text-sm text-slate-500">View, search, and manage registered accounts.</p>
           </div>
           <button
@@ -159,8 +159,8 @@ export default function AdminUsersPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700">Student ID</label>
               <input
-                value={form.studentId}
-                onChange={(e) => setForm((current) => ({ ...current, studentId: e.target.value }))}
+                value={form.studentIdNumber}
+                onChange={(e) => setForm((current) => ({ ...current, studentIdNumber: e.target.value }))}
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500"
               />
             </div>
@@ -175,8 +175,8 @@ export default function AdminUsersPage() {
             <div>
               <label className="block text-sm font-medium text-slate-700">Academic year</label>
               <input
-                value={form.academicYear}
-                onChange={(e) => setForm((current) => ({ ...current, academicYear: e.target.value }))}
+                value={form.year}
+                onChange={(e) => setForm((current) => ({ ...current, year: e.target.value }))}
                 className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500"
               />
             </div>
@@ -255,8 +255,8 @@ export default function AdminUsersPage() {
               ))}
             </select>
             <select
-              value={filterAcademicYear}
-              onChange={(e) => setFilterAcademicYear(e.target.value)}
+              value={filterYear}
+              onChange={(e) => setFilterYear(e.target.value)}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500"
             >
               {academicYearOptions.map((option) => (
@@ -305,9 +305,9 @@ export default function AdminUsersPage() {
                   <tr key={user._id} className="border-t border-slate-200">
                     <td className="px-3 py-2 font-medium text-slate-800">{user.name || 'Unknown'}</td>
                     <td className="px-3 py-2 text-slate-600">{user.email}</td>
-                    <td className="px-3 py-2 text-slate-600">{user.studentId || '—'}</td>
+                    <td className="px-3 py-2 text-slate-600">{user.studentIdNumber || '—'}</td>
                     <td className="px-3 py-2 text-slate-600">{user.faculty || '—'}</td>
-                    <td className="px-3 py-2 text-slate-600">{user.academicYear || '—'}</td>
+                    <td className="px-3 py-2 text-slate-600">{user.year || '—'}</td>
                     <td className="px-3 py-2 text-slate-600">{user.ratingBadge || 'Unranked'}</td>
                     <td className="px-3 py-2 text-slate-600">{user.role}</td>
                     <td className={`px-3 py-2 font-semibold ${user.isBlocked ? 'text-rose-600' : 'text-emerald-600'}`}>

@@ -47,39 +47,40 @@ const adminUserValidators = [
     .withMessage('Password must include at least one number.')
     .matches(/[^A-Za-z0-9]/)
     .withMessage('Password must include at least one special symbol.'),
-  body('studentId').trim().optional({ nullable: true, checkFalsy: true }),
+  body('studentIdNumber').trim().optional({ nullable: true, checkFalsy: true }),
   body('faculty').trim().optional({ nullable: true, checkFalsy: true }),
-  body('academicYear').trim().optional({ nullable: true, checkFalsy: true }),
+  body('year').trim().optional({ nullable: true, checkFalsy: true }),
   body('role').optional().isIn(['student', 'admin']).withMessage('Invalid role.')
 ];
 
 router.use(auth, requireAdmin);
+
+// Dashboard and statistics
 router.get('/dashboard', getDashboard);
+router.get('/stats', getStats);
+router.get('/revenue', getRevenue);
+router.get('/activity', getActivity);
+
+// User management
 router.get('/users', getUsers);
 router.post('/users', adminUserValidators, createUser);
-router.put('/resources/:id/approve', approveResource);
-router.delete('/resources/:id', deleteResource);
-router.delete('/comments/:id', deleteComment);
+router.delete('/users/:id', deleteUser);
 router.put('/users/:id/badge', updateUserBadge);
 router.put('/users/:id/role', updateUserRole);
 router.put('/users/:id/block', toggleUserBlock);
-router.delete('/users/:id', deleteUser);
+router.post('/users/:id/warn', warnUser);
+router.put('/users/:id/ban', banUser);
 
-// Moderation routes
+// Moderation and reporting
 router.get('/moderation/stats', getModerationStats);
 router.get('/moderation', getModerationItems);
 router.put('/reports/:id/dismiss', dismissReport);
 router.put('/reports/:id/resolve', resolveReport);
 router.put('/comments/:id/edit', editComment);
 router.delete('/comments/:id', deleteReportedComment);
-router.post('/users/:id/warn', warnUser);
-router.put('/users/:id/ban', banUser);
 router.put('/inquiries/:id/resolve', resolveInquiry);
 
-// New dashboard and resource management routes
-router.get('/stats', getStats);
-router.get('/revenue', getRevenue);
-router.get('/activity', getActivity);
+// Resource management
 router.get('/resources', getResources);
 router.put('/resources/:id/approve', approveResource);
 router.put('/resources/:id/reject', rejectResource);

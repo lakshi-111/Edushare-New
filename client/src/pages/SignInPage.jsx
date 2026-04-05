@@ -34,7 +34,7 @@ export default function SignInPage() {
         email: form.email.trim().toLowerCase(),
         password: form.password
       });
-      login(data);
+      login({ user: data.user, token: data.token });
       navigate(data.user.role === 'admin' ? '/admin/dashboard' : '/browse');
     } catch (err) {
       const body = err.response?.data;

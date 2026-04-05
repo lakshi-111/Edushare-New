@@ -366,7 +366,7 @@ export default function AdminDashboardPage() {
                 <div key={label} className="bg-gradient-to-br from-white to-slate-50 rounded-2xl p-4 border border-white/50">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{label}</p>
                   <p className={`text-2xl font-bold bg-gradient-to-r ${color} bg-clip-text text-transparent`}>
-                    ${Number(value || 0).toFixed(2)}
+                    Rs {Number(value || 0).toFixed(0)}
                   </p>
                 </div>
               ))}

@@ -49,7 +49,9 @@ export default function StudentPerformancePage() {
   const topUsers = useMemo(() => {
     const map = new Map();
     resources.forEach((resource) => {
-      const user = resource.uploaderId?.name || resource.uploaderId?.email || 'Unknown';
+      const user = resource.uploaderDeleted 
+        ? 'Deleted User' 
+        : (resource.uploaderId?.name || resource.uploaderId?.email || 'Unknown');
       const prev = map.get(user) || { uploads: 0, downloads: 0 };
       map.set(user, { uploads: prev.uploads + 1, downloads: prev.downloads + Number(resource.downloads || 0) });
     });

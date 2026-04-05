@@ -15,8 +15,12 @@ export default function AdminSettingsPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-3xl font-bold text-slate-900">Admin Settings</h2>
-        <p className="mt-2 text-sm text-slate-500">Configure system behavior and security controls.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-brand-600">Admin Settings</h2>
+            <p className="mt-2 text-sm text-slate-500">Configure system behavior and security controls.</p>
+          </div>
+        </div>
       </div>
 
       <div className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-sm">

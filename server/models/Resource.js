@@ -16,6 +16,7 @@ const resourceSchema = new mongoose.Schema(
     price: { type: Number, default: 0, min: 0 },
     tags: [{ type: String, trim: true }],
     uploaderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    uploaderDeleted: { type: Boolean, default: false },
     downloads: { type: Number, default: 0 },
     averageRating: { type: Number, default: 0 },
     ratingCount: { type: Number, default: 0 },

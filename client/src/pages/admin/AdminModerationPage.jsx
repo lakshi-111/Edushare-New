@@ -2,6 +2,17 @@ import { useEffect, useState } from 'react';
 import { Flag, CheckCircle, XCircle, Edit, Trash2, Mail, Ban } from 'lucide-react';
 import api from '../../utils/api';
 
+function formatReason(reason) {
+  const reasons = {
+    'incorrect_or_misleading_information': 'Incorrect or misleading information',
+    'inappropriate_language': 'Inappropriate language',
+    'spam_or_advertising': 'Spam or advertising',
+    'harassment_or_personal_attack': 'Harassment or personal attack',
+    'other': 'Other'
+  };
+  return reasons[reason] || reason;
+}
+
 export default function AdminModerationPage() {
   const [stats, setStats] = useState({ reportedComments: 0, totalAlerts: 0 });
   const [items, setItems] = useState([]);
@@ -17,7 +28,8 @@ export default function AdminModerationPage() {
       ]);
       setStats({
         reportedComments: statsRes.data.reportedComments,
-        totalAlerts: statsRes.data.reportedComments
+        pendingInquiries: statsRes.data.pendingInquiries,
+        totalAlerts: statsRes.data.totalAlerts
       });
       setItems((itemsRes.data.items || []).filter(item => item.type === 'report'));
       setTopReportedComment(itemsRes.data.topReportedComment || null);
@@ -79,8 +91,12 @@ export default function AdminModerationPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-3xl font-bold text-slate-900">Reports & Moderation</h2>
-        <p className="mt-2 text-sm text-slate-500">Inspect reports from users and handle policy violations quickly.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-brand-600">Reports & Moderation</h2>
+            <p className="mt-2 text-sm text-slate-500">Inspect reports from users and handle policy violations quickly.</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -89,8 +105,12 @@ export default function AdminModerationPage() {
           <p className="mt-2 text-2xl font-bold text-red-600">{stats.reportedComments}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs uppercase tracking-widest text-slate-400">Pending Inquiries</p>
+          <p className="mt-2 text-2xl font-bold text-orange-600">{stats.pendingInquiries}</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-widest text-slate-400">Total Alerts</p>
-          <p className="mt-2 text-2xl font-bold text-orange-600">{stats.totalAlerts}</p>
+          <p className="mt-2 text-2xl font-bold text-red-700">{stats.totalAlerts}</p>
         </div>
       </div>
 
@@ -137,7 +157,7 @@ export default function AdminModerationPage() {
                       <div className="mt-2 flex flex-wrap gap-2">
                         {item.reports?.slice(0, 2).map((report, idx) => (
                           <span key={idx} className="text-xs bg-red-50 text-red-700 px-2 py-1 rounded">
-                            {report.reason}: {report.description || 'No details'}
+                            {formatReason(report.reason)}: {report.description || 'No details'}
                           </span>
                         ))}
                       </div>

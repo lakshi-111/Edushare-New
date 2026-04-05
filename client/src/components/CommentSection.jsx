@@ -126,10 +126,10 @@ export default function CommentSection({ resourceId, comments, onReload }) {
                   required
                 >
                   <option value="">Select a reason</option>
-                  <option value="wrong information">Incorrect or misleading information</option>
-                  <option value="bad language">Inappropriate language</option>
-                  <option value="spam">Spam or advertising</option>
-                  <option value="harassment">Harassment or personal attack</option>
+                  <option value="incorrect_or_misleading_information">Incorrect or misleading information</option>
+                  <option value="inappropriate_language">Inappropriate language</option>
+                  <option value="spam_or_advertising">Spam or advertising</option>
+                  <option value="harassment_or_personal_attack">Harassment or personal attack</option>
                   <option value="other">Other</option>
                 </select>
               </div>

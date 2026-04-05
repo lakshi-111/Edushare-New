@@ -1,8 +1,8 @@
 export function formatCurrency(value = 0) {
-  return new Intl.NumberFormat('en-LK', {
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'LKR',
-    maximumFractionDigits: 2
+    maximumFractionDigits: 0
   }).format(Number(value || 0));
 }
 

@@ -10,18 +10,15 @@ function authPayload(user) {
     role: user.role,
     badge: user.badge,
     ratingBadge: user.ratingBadge,
-    studentId: user.studentId || '',
+    studentIdNumber: user.studentIdNumber || '',
     faculty: user.faculty || '',
-    academicYear: user.academicYear || '',
+    year: user.year || '',
+    semester: user.semester || '',
     uploadCount: user.uploadCount,
     totalDownloads: user.totalDownloads,
     totalEarnings: user.totalEarnings,
     averageRating: user.averageRating,
     avatar: user.avatar,
-    studentIdNumber: user.studentIdNumber,
-    faculty: user.faculty,
-    year: user.year,
-    semester: user.semester,
     createdAt: user.createdAt
   };
 }

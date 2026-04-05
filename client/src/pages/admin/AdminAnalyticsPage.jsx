@@ -53,8 +53,12 @@ export default function AdminAnalyticsPage() {
   return (
     <section className="space-y-6">
       <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-3xl font-bold text-slate-900">Analytics & Reports</h2>
-        <p className="mt-2 text-sm text-slate-500">Visibility into growth and performance across users, resources, and orders.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-brand-600">Analytics & Reports</h2>
+            <p className="mt-2 text-sm text-slate-500">Visibility into growth and performance across users, resources, and orders.</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -62,7 +66,7 @@ export default function AdminAnalyticsPage() {
           { label: 'Total Users', value: data.users.length },
           { label: 'Total Resources', value: data.resources.length },
           { label: 'Total Orders', value: data.orders.length },
-          { label: 'Revenue', value: `$${revenue.toFixed(2)}` }
+          { label: 'Revenue', value: `Rs ${revenue.toFixed(0)}` }
         ].map((item) => (
           <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs uppercase tracking-widest text-slate-400">{item.label}</p>
@@ -88,7 +92,7 @@ export default function AdminAnalyticsPage() {
           <ul className="mt-4 space-y-2 text-sm text-slate-600">
             <li>Daily active users increased by 18% in the past 30 days.</li>
             <li>Resource approvals increased by 25% month-over-month.</li>
-            <li>Average order value is ${data.orders.length ? (revenue / data.orders.length).toFixed(2) : '0.00'}.</li>
+            <li>Average order value is Rs {data.orders.length ? (revenue / data.orders.length).toFixed(0) : '0'}.</li>
           </ul>
         </div>
       </div>

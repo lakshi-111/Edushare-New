@@ -47,7 +47,7 @@ export default function ResourceCard({ resource }) {
 
         <div className="mt-5 flex items-center justify-between gap-3">
           <p className={`text-lg font-semibold ${isFree ? 'text-emerald-600' : 'text-slate-900'}`}>
-            {isFree ? 'Free' : `$${Number(resource.price || 0).toFixed(0)}`}
+            {isFree ? 'Free' : `Rs ${Number(resource.price || 0).toFixed(0)}`}
           </p>
           {!isFree && (
             <button

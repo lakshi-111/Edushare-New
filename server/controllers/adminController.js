@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
 const { validationResult } = require('express-validator');
 const User = require('../models/User');
 const Resource = require('../models/Resource');
@@ -12,7 +14,7 @@ const AdminLog = require('../models/AdminLog');
 const Report = require('../models/Report');
 const Snapshot = require('../models/Snapshot');
 const { createNotification } = require('../utils/notifications');
-const { sendWelcomeEmail, sendWarningEmail, sendRejectionEmail } = require('../utils/email');
+const { sendWelcomeEmail, sendWarningEmail, sendRejectionEmail, sendApprovalEmail } = require('../utils/email');
 
 async function deleteResource(req, res) {
   const resource = await Resource.findById(req.params.id);
@@ -73,19 +75,19 @@ async function getUsers(req, res) {
   const search = String(req.query.q || req.query.search || '').trim();
   const role = String(req.query.role || 'all');
   const faculty = String(req.query.faculty || 'all');
-  const academicYear = String(req.query.academicYear || 'all');
+  const year = String(req.query.year || 'all');
   const ratingBadge = String(req.query.ratingBadge || 'all');
 
   if (search) {
     filter.$or = [
       { name: { $regex: search, $options: 'i' } },
       { email: { $regex: search, $options: 'i' } },
-      { studentId: { $regex: search, $options: 'i' } }
+      { studentIdNumber: { $regex: search, $options: 'i' } }
     ];
   }
   if (role !== 'all') filter.role = role;
   if (faculty !== 'all') filter.faculty = faculty;
-  if (academicYear !== 'all') filter.academicYear = academicYear;
+  if (year !== 'all') filter.year = year;
   if (ratingBadge !== 'all') filter.ratingBadge = ratingBadge;
 
   const users = await User.find(filter).sort({ createdAt: -1 });
@@ -103,7 +105,7 @@ async function createUser(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ message: 'Validation failed.', errors: errors.array() });
 
-  const { name, email, password, studentId = '', faculty = '', academicYear = '', role = 'student' } = req.body;
+  const { name, email, password, studentIdNumber = '', faculty = '', year = '', role = 'student' } = req.body;
   const normalizedEmail = email.toLowerCase();
   const existingUser = await User.findOne({ email: normalizedEmail });
   if (existingUser) return res.status(400).json({ message: 'A user already exists with this email.' });
@@ -112,9 +114,9 @@ async function createUser(req, res) {
     name: name.trim(),
     email: normalizedEmail,
     password,
-    studentId: String(studentId || '').trim(),
+    studentIdNumber: String(studentIdNumber || '').trim(),
     faculty: String(faculty || '').trim(),
-    academicYear: String(academicYear || '').trim(),
+    year: String(year || '').trim(),
     role: ['admin', 'student'].includes(role) ? role : 'student'
   });
 
@@ -144,18 +146,33 @@ async function performCascadeDelete(targetId, session = null) {
   const resources = await query;
   const resourceIds = resources.map((resource) => resource._id);
 
+  // Delete all ratings given by this user
   await Rating.deleteMany({ userId: targetId }, options);
+  
+  // Delete all ratings and comments for this user's resources
   if (resourceIds.length) {
     await Rating.deleteMany({ resourceId: { $in: resourceIds } }, options);
     await Comment.deleteMany({ resourceId: { $in: resourceIds } }, options);
+    // Mark user's resources as having a deleted uploader (don't delete them)
+    await Resource.updateMany({ uploaderId: targetId }, { uploaderDeleted: true }, options);
   }
 
+  // Delete all comments from this user
   await Comment.deleteMany({ userId: targetId }, options);
+  
+  // Delete all inquiries from this user
   await Inquiry.deleteMany({ userId: targetId }, options);
+  
+  // Delete all orders for this user (both as buyer and seller of resources)
   await Order.deleteMany({ userId: targetId }, options);
+  
+  // Delete all notifications for this user
   await Notification.deleteMany({ userId: targetId }, options);
+  
+  // Disconnect all connections for this user
   await Connection.deleteMany({ $or: [{ requesterId: targetId }, { recipientId: targetId }] }, options);
-  await Resource.deleteMany({ uploaderId: targetId }, options);
+  
+  // Delete the user
   await User.deleteOne({ _id: targetId }, options);
 }
 
@@ -261,10 +278,16 @@ async function toggleUserBlock(req, res) {
 }
 
 async function getModerationStats(req, res) {
-  const [reportedComments, pendingInquiries] = await Promise.all([
-    Report.countDocuments({ status: 'pending' }),
-    Inquiry.countDocuments({ status: 'Pending' })
+  // Get unique comments with pending reports
+  const pendingReportsAgg = await Report.aggregate([
+    { $match: { status: 'pending' } },
+    { $group: { _id: '$commentId' } },
+    { $count: 'count' }
   ]);
+  const reportedComments = pendingReportsAgg[0]?.count || 0;
+
+  const pendingInquiries = await Inquiry.countDocuments({ status: 'Pending' });
+
   res.json({
     reportedComments,
     pendingInquiries,
@@ -642,6 +665,17 @@ async function approveResource(req, res) {
   await resource.uploaderId.updateBadge();
   await resource.uploaderId.save();
 
+  // Send approval email
+  try {
+    await sendApprovalEmail({
+      to: resource.uploaderId.email,
+      name: resource.uploaderId.name,
+      resourceTitle: resource.title
+    });
+  } catch (emailError) {
+    console.warn('Approval email failed:', emailError.message || emailError);
+  }
+
   await AdminLog.create({
     adminId: req.user._id,
     targetResourceId: resource._id,
@@ -703,6 +737,18 @@ async function deleteResource(req, res) {
     )
   ]);
 
+  // Delete physical file if it exists
+  if (resource.fileUrl) {
+    try {
+      const filePath = path.join(__dirname, '..', resource.fileUrl.replace(/^\//, ''));
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (fileError) {
+      console.warn('File deletion failed:', fileError.message || fileError);
+    }
+  }
+
   // Delete the resource
   await resource.deleteOne();
 
@@ -734,6 +780,17 @@ async function bulkApproveResources(req, res) {
     await resource.uploaderId.updateBadge();
     await resource.uploaderId.save();
     updatedResources.push(resource);
+
+    // Send approval email
+    try {
+      await sendApprovalEmail({
+        to: resource.uploaderId.email,
+        name: resource.uploaderId.name,
+        resourceTitle: resource.title
+      });
+    } catch (emailError) {
+      console.warn('Approval email failed:', emailError.message || emailError);
+    }
 
     await AdminLog.create({
       adminId: req.user._id,
@@ -802,6 +859,18 @@ async function bulkDeleteResources(req, res) {
       )
     ]);
 
+    // Delete physical file if it exists
+    if (resource.fileUrl) {
+      try {
+        const filePath = path.join(__dirname, '..', resource.fileUrl.replace(/^\//, ''));
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (fileError) {
+        console.warn('File deletion failed:', fileError.message || fileError);
+      }
+    }
+
     await resource.uploaderId.updateBadge();
     await resource.uploaderId.save();
 
@@ -820,24 +889,9 @@ async function bulkDeleteResources(req, res) {
 
 module.exports = {
   getDashboard,
-  approveResource,
-  deleteResource,
-  deleteComment,
-  updateUserBadge,
-  updateUserRole,
-  toggleUserBlock,
   getUsers,
   createUser,
   deleteUser,
-  getModerationStats,
-  getModerationItems,
-  dismissReport,
-  resolveReport,
-  editComment,
-  deleteReportedComment,
-  warnUser,
-  banUser,
-  resolveInquiry,
   getStats,
   getRevenue,
   getActivity,
@@ -847,5 +901,18 @@ module.exports = {
   deleteResource,
   bulkApproveResources,
   bulkRejectResources,
-  bulkDeleteResources
+  bulkDeleteResources,
+  getModerationStats,
+  getModerationItems,
+  dismissReport,
+  resolveReport,
+  editComment,
+  deleteReportedComment,
+  deleteComment,
+  warnUser,
+  banUser,
+  resolveInquiry,
+  updateUserBadge,
+  updateUserRole,
+  toggleUserBlock
 };
