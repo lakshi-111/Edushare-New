@@ -9,7 +9,19 @@ const paymentSchema = z.object({
   cardNumber: z.string()
     .transform((val) => val.replace(/\s+/g, ''))
     .pipe(z.string().regex(/^\d{16}$/, 'Must be 16 digits')),
-  expiry: z.string().regex(/^(0[1-9]|1[0-2])\/\d{2}$/, 'Format: MM/YY'),
+  expiry: z.string().regex(/^(0[1-9]|1[0-2])\/\d{2}$/, 'Format: MM/YY').refine((val) => {
+    const [month, year] = val.split('/');
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear() % 100;
+    
+    const expMonth = parseInt(month, 10);
+    const expYear = parseInt(year, 10);
+    
+    if (expYear > currentYear) return true;
+    if (expYear === currentYear && expMonth >= currentMonth) return true;
+    return false;
+  }, 'Must be in the future'),
   cvv: z.string().regex(/^\d{3}$/, 'Must be 3 digits')
 });
 

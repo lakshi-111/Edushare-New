@@ -59,12 +59,21 @@ async function approveResource(req, res) {
 
   const populated = await Resource.findById(resource._id).populate('uploaderId', 'name email badge');
 
-  if (verificationStatus === 'verified') {
+  if (verificationStatus === 'verified' || verificationStatus === 'approved') {
+    const statusText = verificationStatus === 'verified' ? 'verified' : 'approved';
     await createNotification({
       userId: resource.uploaderId,
       type: 'verification',
-      title: 'Resource Verified',
-      message: `Your resource '${resource.title}' has been verified by admin.`,
+      title: 'Resource ' + (statusText.charAt(0).toUpperCase() + statusText.slice(1)),
+      message: `Congratulations! Your resource "${resource.title}" has been carefully reviewed and ${statusText} by our administrative team. It is now published and available to the community.`,
+      relatedId: resource._id
+    });
+  } else if (verificationStatus === 'rejected') {
+    await createNotification({
+      userId: resource.uploaderId,
+      type: 'verification',
+      title: 'Resource Rejected',
+      message: `Unfortunately, your resource "${resource.title}" could not be approved at this time. Please check your dashboard for any specific notes from the admin.`,
       relatedId: resource._id
     });
   }

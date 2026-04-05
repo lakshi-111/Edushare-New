@@ -97,7 +97,7 @@ async function createOrder(req, res) {
     userId: req.user._id,
     type: 'payment',
     title: 'Payment successful',
-    message: `Your payment of ${totalPrice.toFixed(2)} is completed and ${orderItems.length} resource(s) are now in your library.`,
+    message: `Thank you for your purchase! Your payment of ${totalPrice.toFixed(2)} has been processed successfully. You can now access ${orderItems.map(item => `"${item.title}"`).join(', ')} in your library.`,
     relatedId: order._id
   });
 
@@ -113,7 +113,7 @@ async function createOrder(req, res) {
           userId: resource.uploaderId,
           type: 'order',
           title: 'Resource purchased',
-          message: `${req.user.name} purchased "${resource.title}".`,
+          message: `Great news! ${req.user.name} has just purchased your resource "${resource.title}" for ${resource.price.toFixed(2)}. Your total earnings have been updated.`,
           relatedId: order._id
         });
       })
@@ -317,13 +317,31 @@ async function updateOrderStatus(req, res) {
   if (isVerifiedOrd || isApprovedOrd) {
     const titleText = isVerifiedOrd ? 'Payment Verified' : 'Payment Approved';
     const actionText = isVerifiedOrd ? 'verified' : 'approved';
+    const orderItemsList = order.items.map(item => `"${item.title}"`).join(', ');
+
     await createNotification({
       userId: order.userId,
       type: 'payment',
       title: titleText,
-      message: `Your payment has been ${actionText} by the admin.`,
+      message: `Your payment for Order #${order._id.toString().substring(0, 8).toUpperCase()} containing ${orderItemsList} has been ${actionText} by the administrative team.`,
       relatedId: order._id
     });
+
+    const resourceIds = order.items.map(item => item.resourceId);
+    const resources = await Resource.find({ _id: { $in: resourceIds } });
+
+    await Promise.all(resources.map(resource => {
+      // Exclude buyer's own resources just in case, though usually buyers don't buy their own stuff.
+      if (resource.uploaderId.toString() !== order.userId.toString()) {
+        return createNotification({
+          userId: resource.uploaderId,
+          type: 'verification',
+          title: `Selling ${titleText}`,
+          message: `The payment for your resource "${resource.title}" has been ${actionText} by the admin. The earnings are now verified and available in your balance.`,
+          relatedId: order._id
+        });
+      }
+    }));
   }
 
   res.json({ message: 'Order status updated.', order });
@@ -362,6 +380,14 @@ async function withdrawEarnings(req, res) {
 
   await User.findByIdAndUpdate(req.user._id, {
     $inc: { withdrawnAmount: availableToWithdraw }
+  });
+
+  await createNotification({
+    userId: req.user._id,
+    type: 'payment',
+    title: 'Withdrawal Successful',
+    message: `Your withdrawal request for ${availableToWithdraw.toFixed(2)} has been processed successfully. The funds have been deducted from your available balance.`,
+    relatedId: null
   });
 
   res.json({ message: `Successfully withdrawn`, amount: availableToWithdraw });
