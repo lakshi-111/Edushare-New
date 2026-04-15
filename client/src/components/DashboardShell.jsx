@@ -97,7 +97,7 @@ export default function DashboardShell({ children }) {
         </nav>
       </aside>
 
-      <div className="lg:pl-[138px]">
+      <div className="lg:pl-[200px]">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 sm:px-6 lg:px-8">
           <form onSubmit={handleSearchSubmit} className="flex-1 max-w-xl">
             <label className="flex h-10 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4">
