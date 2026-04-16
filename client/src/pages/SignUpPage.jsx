@@ -15,11 +15,29 @@ export default function SignUpPage() {
     studentIdNumber: '',
     faculty: '',
     year: '',
-    semester: '',
-    role: 'student'
+    semester: ''
   });
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
+
+  function validatePassword(password) {
+    if (!password || password.length < 8) {
+      return 'Password must be at least 8 characters.';
+    }
+    if (!/[A-Z]/.test(password)) {
+      return 'Password must include at least one uppercase letter.';
+    }
+    if (!/[a-z]/.test(password)) {
+      return 'Password must include at least one lowercase letter.';
+    }
+    if (!/[0-9]/.test(password)) {
+      return 'Password must include at least one number.';
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      return 'Password must include at least one special symbol.';
+    }
+    return '';
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -32,8 +50,9 @@ export default function SignUpPage() {
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       newFieldErrors.email = 'Please enter a valid email.';
     }
-    if (!form.password || form.password.length < 8) {
-      newFieldErrors.password = 'Password must be at least 8 characters.';
+    const passwordError = validatePassword(form.password);
+    if (passwordError) {
+      newFieldErrors.password = passwordError;
     }
     if (form.password !== form.confirmPassword) {
       newFieldErrors.confirmPassword = 'Passwords do not match.';
@@ -66,11 +85,10 @@ export default function SignUpPage() {
         studentIdNumber: form.studentIdNumber.trim(),
         faculty: form.faculty.trim(),
         year: form.year,
-        semester: form.semester,
-        role: form.role
+        semester: form.semester
       });
       login(data);
-      navigate(data.user.role === 'admin' ? '/admin/dashboard' : '/browse');
+      navigate('/browse');
     } catch (err) {
       const body = err.response?.data;
       if (body?.errors) {
@@ -135,11 +153,10 @@ export default function SignUpPage() {
             </div>
           </div>
 
-          <select value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500">
-            <option value="student">Student</option>
-            <option value="admin">Admin</option>
-          </select>
-          <p className="text-xs text-slate-500">For student role, student ID, faculty, year, and semester are required.</p>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            New registrations create student accounts. Admin accounts are managed separately.
+          </div>
+          <p className="text-xs text-slate-500">Student ID, faculty, year, and semester are required.</p>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 

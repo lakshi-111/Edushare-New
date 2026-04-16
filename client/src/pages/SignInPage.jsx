@@ -55,7 +55,7 @@ export default function SignInPage() {
     <main className="mx-auto flex max-w-md px-4 py-16">
       <div className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-soft">
         <h1 className="text-3xl font-bold text-slate-900">Sign in</h1>
-        <p className="mt-2 text-slate-600">Access your EduShare account.</p>
+        <p className="mt-2 text-slate-600">Sign in with your student or admin account. You will be routed to the correct area automatically.</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>

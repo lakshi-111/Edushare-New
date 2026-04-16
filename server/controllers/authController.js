@@ -35,7 +35,7 @@ async function register(req, res) {
     name,
     email: email.toLowerCase(),
     password,
-    role: process.env.ALLOW_ADMIN_SIGNUP === 'true' && req.body.role === 'admin' ? 'admin' : 'student',
+    role: 'student',
     studentIdNumber: typeof studentIdNumber === 'string' ? studentIdNumber.trim() : '',
     faculty: typeof faculty === 'string' ? faculty.trim() : '',
     year: typeof year === 'string' ? year.trim() : '',
