@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, BookOpen, Code2, Briefcase, Zap, Beaker, Stethoscope } from 'lucide-react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import api from '../utils/api';
 import ResourceCard from '../components/ResourceCard';
 import { EDU_SHARE_FACULTIES } from '../utils/faculties';
@@ -30,7 +30,6 @@ const CATEGORIES = [
 ];
 
 export default function HomePage() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState(() => ({ ...defaultFilters, search: searchParams.get('search') || '' }));
   const [resources, setResources] = useState([]);
