@@ -17,6 +17,7 @@ import {
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 
 function isItemActive(pathname, itemPath) {
   if (itemPath === '/dashboard') return pathname === '/dashboard' || pathname === '/earnings';
@@ -28,6 +29,7 @@ export default function DashboardShell({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, isAuthenticated } = useAuth();
+  const { totalItems } = useCart();
   const [search, setSearch] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -83,13 +85,21 @@ export default function DashboardShell({ children }) {
         <nav className="px-2 py-4">
           {menuItems.map((item) => {
             const active = isItemActive(location.pathname, item.path);
+            const showCartBadge = item.label === 'Cart' && totalItems > 0;
             return (
               <Link
                 key={item.label}
                 to={item.path}
                 className={`mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-[13px] font-medium transition ${active ? 'bg-brand-500 text-white shadow-soft' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
               >
-                <item.icon size={16} />
+                <div className="relative">
+                  <item.icon size={16} />
+                  {showCartBadge && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-semibold text-white">
+                      {totalItems}
+                    </span>
+                  )}
+                </div>
                 <span className="leading-tight">{item.label}</span>
               </Link>
             );
