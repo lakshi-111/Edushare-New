@@ -4,6 +4,7 @@ import { CreditCard, Shield, Wallet } from 'lucide-react';
 import { z } from 'zod';
 import api from '../utils/api';
 import { formatCurrency } from '../utils/formatters';
+import { useCart } from '../contexts/CartContext';
 
 const paymentSchema = z.object({
   cardNumber: z.string()
@@ -28,6 +29,7 @@ const paymentSchema = z.object({
 export default function PaymentPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { removeFromCart, clearCart, items: cartItems, sync } = useCart();
   const items = location.state?.items || [];
   const [method, setMethod] = useState('credit-card');
   const [cardNumber, setCardNumber] = useState('');
@@ -113,6 +115,17 @@ export default function PaymentPage() {
         paymentMethod: method,
         card: method === 'credit-card' ? { number: cardNumber.replace(/\s+/g, ''), expiry: expiry.trim(), cvv: cvv.trim() } : undefined
       });
+
+      // Remove all purchased items from cart at once
+      const purchasedItemIds = items.map(item => item._id);
+      const remainingItems = cartItems.filter(item => !purchasedItemIds.includes(item._id));
+      
+      // Update cart with remaining items
+      if (remainingItems.length === 0) {
+        clearCart();
+      } else {
+        sync(remainingItems);
+      }
 
       navigate('/payment/success', { state: { total: total, order: response.data.order } });
     } catch (err) {
