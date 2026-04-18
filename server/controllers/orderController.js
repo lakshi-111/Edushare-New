@@ -201,13 +201,13 @@ async function getSellerOverview(req, res) {
     .filter((item) => item.status === 'pending')
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-  const allVerifiedAndApproved = transactions
-    .filter((item) => ['verified', 'approved', 'paid', 'completed'].includes(item.status))
+  const totalEarnings = transactions
+    .filter((item) => item.status === 'completed')
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-  const withdrawnAmount = req.user.withdrawnAmount || 0;
-  const verifiedPayments = Math.max(0, allVerifiedAndApproved - withdrawnAmount);
-  const totalEarnings = withdrawnAmount;
+  const verifiedPayments = transactions
+    .filter((item) => ['verified', 'approved', 'paid'].includes(item.status))
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   const completedPayouts = transactions.filter((item) => item.status === 'paid').length;
 
@@ -349,19 +349,19 @@ async function updateOrderStatus(req, res) {
 
 /**
  * Calculates a seller's legitimate available balance and processes a withdrawal.
- * The system considers an item 'available' to withdraw ONLY if the overarching order
- * holds a trusted status ('verified', 'approved', 'paid', 'completed').
- * This prevents sellers from cashing out unverified/pending purchases.
+ * The system calculates available balance by looking only at orders in 
+ * 'verified', 'approved', or 'paid' states.
+ * Upon withdrawal, these orders are marked as 'completed' so they move into total earnings.
  */
 async function withdrawEarnings(req, res) {
   // Find all resources owned by the withdrawer
   const resources = await Resource.find({ uploaderId: req.user._id });
   const resourceIds = resources.map(r => r._id);
 
-  // Fetch only the orders that include this user's resources AND have a safe clearance status
+  // Fetch only the orders that include this user's resources AND have an available status
   const orders = await Order.find({ 
     'items.resourceId': { $in: resourceIds },
-    status: { $in: ['verified', 'approved', 'paid', 'completed'] }
+    status: { $in: ['verified', 'approved', 'paid'] }
   });
 
   const transactions = orders.flatMap((order) =>
@@ -370,17 +370,18 @@ async function withdrawEarnings(req, res) {
       .map((item) => ({ amount: item.price }))
   );
 
-  const allVerifiedAndApproved = transactions.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const withdrawnAmount = req.user.withdrawnAmount || 0;
-  const availableToWithdraw = Math.max(0, allVerifiedAndApproved - withdrawnAmount);
+  const availableToWithdraw = transactions.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   if (availableToWithdraw <= 0) {
     return res.status(400).json({ message: 'No available balance to withdraw.' });
   }
 
-  await User.findByIdAndUpdate(req.user._id, {
-    $inc: { withdrawnAmount: availableToWithdraw }
-  });
+  // Option 2: Change the status of these orders to 'completed'
+  const orderIds = orders.map(o => o._id);
+  await Order.updateMany(
+    { _id: { $in: orderIds } },
+    { $set: { status: 'completed' } }
+  );
 
   await createNotification({
     userId: req.user._id,
