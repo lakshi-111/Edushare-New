@@ -23,7 +23,8 @@ export function CartProvider({ children }) {
         sync([...items, resource]);
       },
       removeFromCart: (resourceId) => sync(items.filter((item) => item._id !== resourceId)),
-      clearCart: () => sync([])
+      clearCart: () => sync([]),
+      sync
     }),
     [items]
   );
