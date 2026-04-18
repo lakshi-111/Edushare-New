@@ -65,20 +65,29 @@ export default function HomePage() {
   return (
     <section>
       {/* Hero Section */}
-      <div className="mb-12 rounded-[32px] bg-gradient-to-r from-brand-600 to-brand-700 px-6 py-12 text-center text-white sm:px-8 lg:px-12 lg:py-16">
-        <h1 className="text-3xl font-bold sm:text-4xl lg:text-5xl">Find & Share High-Quality Study Materials</h1>
-        <p className="mt-4 text-base sm:text-lg opacity-90">Join thousands of students who learn, share knowledge, and earn from their academic contributions</p>
-        
-        <div className="mt-8 max-w-2xl mx-auto">
-          <label className="flex h-12 items-center gap-3 rounded-xl bg-white px-4 text-slate-900">
-            <Search size={18} className="text-slate-400" />
-            <input
-              value={filters.search}
-              onChange={(event) => updateFilter('search', event.target.value)}
-              placeholder="Search by module, topic, or faculty..."
-              className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-            />
-          </label>
+      <div className="mb-12 rounded-[32px] px-6 py-12 text-center text-white sm:px-8 lg:px-12 lg:py-16 relative overflow-hidden" 
+           style={{
+             backgroundImage: 'url(https://t3.ftcdn.net/jpg/08/23/48/92/360_F_823489262_onPGneSlusimWkc7yWWUZIBb271JyVs7.jpg)',
+             backgroundSize: 'cover',
+             backgroundPosition: 'center',
+             backgroundColor: 'rgba(99, 102, 241, 0.1)',
+             backgroundBlend: 'overlay'
+           }}>
+        <div className="relative z-10">
+          <h1 className="text-3xl font-bold sm:text-4xl lg:text-5xl">Find & Share High-Quality Study Materials</h1>
+          <p className="mt-4 text-base sm:text-lg opacity-90">Join thousands of students who learn, share knowledge, and earn from their academic contributions</p>
+          
+          <div className="mt-8 max-w-2xl mx-auto">
+            <label className="flex h-12 items-center gap-3 rounded-xl bg-white/90 backdrop-blur-sm px-4 text-slate-900">
+              <Search size={18} className="text-slate-400" />
+              <input
+                value={filters.search}
+                onChange={(event) => updateFilter('search', event.target.value)}
+                placeholder="Search by module, topic, or faculty..."
+                className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+              />
+            </label>
+          </div>
         </div>
       </div>
 
