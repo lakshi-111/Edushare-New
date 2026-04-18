@@ -1,6 +1,5 @@
 import { BookOpen, CreditCard, LogOut, Upload, UserCircle, Wallet } from 'lucide-react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import CartDropdown from './CartDropdown';
 import NotificationDropdown from './NotificationDropdown';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -38,7 +37,6 @@ export default function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <CartDropdown />
           <NotificationDropdown />
           {isAuthenticated ? (
             <>
