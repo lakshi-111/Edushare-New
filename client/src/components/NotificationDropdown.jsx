@@ -1,5 +1,5 @@
 import { Bell } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -7,20 +7,37 @@ export default function NotificationDropdown() {
   const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [count, setCount] = useState(0);
+  const pollIntervalRef = useRef(null);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    async function load() {
+  async function loadNotifications() {
+    try {
       const [{ data: list }, { data: unread }] = await Promise.all([
         api.get('/notifications'),
         api.get('/notifications/unread-count')
       ]);
       setNotifications(list.notifications || []);
       setCount(unread.count || 0);
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
     }
+  }
 
-    load().catch(() => {});
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Initial load
+    loadNotifications();
+
+    // Set up polling for real-time updates every 30 seconds
+    pollIntervalRef.current = setInterval(() => {
+      loadNotifications();
+    }, 30000);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
   }, [isAuthenticated]);
 
   if (!isAuthenticated) return null;

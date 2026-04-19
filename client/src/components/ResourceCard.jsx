@@ -14,9 +14,9 @@ export default function ResourceCard({ resource }) {
     [items, resource._id]
   );
 
-  function handleAddToCart(event) {
+  async function handleAddToCart(event) {
     event.stopPropagation();
-    addToCart(resource);
+    await addToCart(resource);
   }
 
   return (

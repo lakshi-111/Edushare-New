@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   BarChart3,
   Bell,
@@ -17,6 +17,7 @@ import {
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 
 function isItemActive(pathname, itemPath) {
   if (itemPath === '/dashboard') return pathname === '/dashboard' || pathname === '/earnings';
@@ -28,23 +29,37 @@ export default function DashboardShell({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, isAuthenticated } = useAuth();
+  const { totalItems } = useCart();
   const [search, setSearch] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+  const pollIntervalRef = useRef(null);
+
+  async function loadUnreadCount() {
+    try {
+      const { data } = await api.get('/notifications/unread-count');
+      setUnreadCount(data.count || 0);
+    } catch (_error) {
+      setUnreadCount(0);
+    }
+  }
 
   useEffect(() => {
     if (!isAuthenticated) return undefined;
 
-    async function loadUnread() {
-      try {
-        const { data } = await api.get('/notifications/unread-count');
-        setUnreadCount(data.count || 0);
-      } catch (_error) {
-        setUnreadCount(0);
-      }
-    }
+    // Initial load
+    loadUnreadCount();
 
-    loadUnread();
-  }, [isAuthenticated, location.pathname]);
+    // Set up polling for real-time updates every 30 seconds
+    pollIntervalRef.current = setInterval(() => {
+      loadUnreadCount();
+    }, 30000);
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, [isAuthenticated]);
 
   const menuItems = useMemo(() => [
     { label: 'Dashboard', path: '/dashboard', icon: Grid2x2 },
@@ -82,14 +97,21 @@ export default function DashboardShell({ children }) {
         <nav className="px-2 py-4">
           {menuItems.map((item) => {
             const active = isItemActive(location.pathname, item.path);
+            const showCartCount = item.label === 'Cart' && totalItems > 0;
+            
             return (
               <Link
                 key={item.label}
                 to={item.path}
-                className={`mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-[13px] font-medium transition ${active ? 'bg-brand-500 text-white shadow-soft' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                className={`mb-1 flex items-center gap-3 rounded-xl px-3 py-3 text-[13px] font-medium transition relative ${active ? 'bg-brand-500 text-white shadow-soft' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
               >
                 <item.icon size={16} />
                 <span className="leading-tight">{item.label}</span>
+                {showCartCount && (
+                  <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-semibold text-white">
+                    {totalItems}
+                  </span>
+                )}
               </Link>
             );
           })}

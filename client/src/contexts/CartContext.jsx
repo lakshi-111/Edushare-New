@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState } from 'react';
+import api from '../utils/api';
 
 const CartContext = createContext(null);
 
@@ -18,9 +19,19 @@ export function CartProvider({ children }) {
       items,
       totalItems: items.length,
       totalPrice: items.reduce((sum, item) => sum + Number(item.price || 0), 0),
-      addToCart: (resource) => {
+      addToCart: async (resource) => {
         if (items.some((item) => item._id === resource._id)) return;
         sync([...items, resource]);
+        
+        // Create notification for cart update
+        try {
+          await api.post('/notifications/cart-notification', {
+            resourceTitle: resource.title,
+            resourcePrice: resource.price || 0
+          });
+        } catch (error) {
+          console.error('Failed to create cart notification:', error);
+        }
       },
       removeFromCart: (resourceId) => sync(items.filter((item) => item._id !== resourceId)),
       clearCart: () => sync([])
