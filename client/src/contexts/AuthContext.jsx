@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../utils/api';
 
 const AuthContext = createContext(null);
@@ -11,6 +11,29 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
+  const persistAuth = useCallback((nextUser, nextToken) => {
+    setUser(nextUser);
+    setToken(nextToken);
+
+    if (nextUser) {
+      localStorage.setItem('user', JSON.stringify(nextUser));
+    } else {
+      localStorage.removeItem('user');
+    }
+
+    if (nextToken) {
+      localStorage.setItem('token', nextToken);
+    } else {
+      localStorage.removeItem('token');
+    }
+  }, []);
+
+  const refreshProfile = useCallback(async () => {
+    const { data } = await api.get('/auth/profile');
+    persistAuth(data.user, localStorage.getItem('token'));
+    return data.user;
+  }, [persistAuth]);
+
   useEffect(() => {
     async function restore() {
       if (!token) {
@@ -19,21 +42,16 @@ export function AuthProvider({ children }) {
       }
 
       try {
-        const { data } = await api.get('/auth/profile');
-        setUser(data.user);
-        localStorage.setItem('user', JSON.stringify(data.user));
+        await refreshProfile();
       } catch (_error) {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-        setUser(null);
-        setToken(null);
+        persistAuth(null, null);
       } finally {
         setLoading(false);
       }
     }
 
     restore();
-  }, [token]);
+  }, [persistAuth, refreshProfile, token]);
 
   const value = useMemo(
     () => ({
@@ -42,24 +60,14 @@ export function AuthProvider({ children }) {
       loading,
       isAuthenticated: Boolean(user && token),
       login: ({ user: nextUser, token: nextToken }) => {
-        setUser(nextUser);
-        setToken(nextToken);
-        localStorage.setItem('user', JSON.stringify(nextUser));
-        localStorage.setItem('token', nextToken);
+        persistAuth(nextUser, nextToken);
       },
       logout: () => {
-        setUser(null);
-        setToken(null);
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+        persistAuth(null, null);
       },
-      refreshProfile: async () => {
-        const { data } = await api.get('/auth/profile');
-        setUser(data.user);
-        localStorage.setItem('user', JSON.stringify(data.user));
-      }
+      refreshProfile
     }),
-    [user, token, loading]
+    [loading, persistAuth, refreshProfile, token, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

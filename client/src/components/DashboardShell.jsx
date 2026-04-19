@@ -27,24 +27,41 @@ function isItemActive(pathname, itemPath) {
 export default function DashboardShell({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, refreshProfile } = useAuth();
   const [search, setSearch] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [syncingProfile, setSyncingProfile] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) return undefined;
 
-    async function loadUnread() {
+    let ignore = false;
+
+    async function loadHeaderData() {
       try {
+        setSyncingProfile(true);
+        await refreshProfile();
         const { data } = await api.get('/notifications/unread-count');
-        setUnreadCount(data.count || 0);
+        if (!ignore) {
+          setUnreadCount(data.count || 0);
+        }
       } catch (_error) {
-        setUnreadCount(0);
+        if (!ignore) {
+          setUnreadCount(0);
+        }
+      } finally {
+        if (!ignore) {
+          setSyncingProfile(false);
+        }
       }
     }
 
-    loadUnread();
-  }, [isAuthenticated, location.pathname]);
+    loadHeaderData();
+
+    return () => {
+      ignore = true;
+    };
+  }, [isAuthenticated, location.pathname, refreshProfile]);
 
   const menuItems = useMemo(() => [
     { label: 'Dashboard', path: '/dashboard', icon: Grid2x2 },
@@ -144,7 +161,9 @@ export default function DashboardShell({ children }) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-900">{user?.name || 'User'}</p>
-                <p className="text-xs text-slate-500">{user?.role === 'admin' ? 'Administrator' : 'Student'}</p>
+                <p className="text-xs text-slate-500">
+                  {syncingProfile ? 'Syncing profile...' : user?.role === 'admin' ? 'Administrator' : 'Student'}
+                </p>
               </div>
             </button>
 
