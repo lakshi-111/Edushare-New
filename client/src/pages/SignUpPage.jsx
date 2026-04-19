@@ -1,12 +1,32 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { EDU_SHARE_FACULTIES } from '../utils/faculties';
 
+const PASSWORD_HELP =
+  'Password must be at least 8 characters and include uppercase, lowercase, number, and special symbol.';
+
+function mapFieldErrors(errors = []) {
+  return errors.reduce((acc, error) => {
+    if (!acc[error.param]) acc[error.param] = error.msg;
+    return acc;
+  }, {});
+}
+
+function isStrongPassword(password) {
+  return (
+    password.length >= 8 &&
+    /[A-Z]/.test(password) &&
+    /[a-z]/.test(password) &&
+    /[0-9]/.test(password) &&
+    /[^A-Za-z0-9]/.test(password)
+  );
+}
+
 export default function SignUpPage() {
   const navigate = useNavigate();
-  const { login, refreshProfile } = useAuth();
+  const { isAuthenticated, loading, login, refreshProfile, user } = useAuth();
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -15,11 +35,27 @@ export default function SignUpPage() {
     studentIdNumber: '',
     faculty: '',
     year: '',
-    semester: '',
-    role: 'student'
+    semester: ''
   });
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate(user?.role === 'admin' ? '/admin/dashboard' : '/browse', { replace: true });
+    }
+  }, [isAuthenticated, loading, navigate, user?.role]);
+
+  function updateField(key, value) {
+    setForm((current) => ({ ...current, [key]: value }));
+    setFieldErrors((current) => {
+      if (!current[key]) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    setError('');
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -32,8 +68,11 @@ export default function SignUpPage() {
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       newFieldErrors.email = 'Please enter a valid email.';
     }
-    if (!form.password || form.password.length < 8) {
-      newFieldErrors.password = 'Password must be at least 8 characters.';
+    if (!isStrongPassword(form.password)) {
+      newFieldErrors.password = PASSWORD_HELP;
+    }
+    if (!form.confirmPassword) {
+      newFieldErrors.confirmPassword = 'Please confirm your password.';
     }
     if (form.password !== form.confirmPassword) {
       newFieldErrors.confirmPassword = 'Passwords do not match.';
@@ -66,8 +105,7 @@ export default function SignUpPage() {
         studentIdNumber: form.studentIdNumber.trim(),
         faculty: form.faculty.trim(),
         year: form.year,
-        semester: form.semester,
-        role: form.role
+        semester: form.semester
       });
       login(data);
       await refreshProfile().catch(() => {});
@@ -75,7 +113,7 @@ export default function SignUpPage() {
     } catch (err) {
       const body = err.response?.data;
       if (body?.errors) {
-        setFieldErrors(Object.fromEntries(body.errors.map((e) => [e.param, e.msg])));
+        setFieldErrors(mapFieldErrors(body.errors));
       }
       setError(body?.message || 'Registration failed.');
     }
@@ -90,34 +128,34 @@ export default function SignUpPage() {
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <input type="text" placeholder="Full name" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500" />
+              <input type="text" placeholder="Full name" value={form.name} onChange={(event) => updateField('name', event.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500" />
               {fieldErrors.name && <p className="mt-1 text-xs text-rose-600">{fieldErrors.name}</p>}
             </div>
             <div>
-              <input type="email" placeholder="Email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500" />
+              <input type="email" placeholder="Email" value={form.email} onChange={(event) => updateField('email', event.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500" />
               {fieldErrors.email && <p className="mt-1 text-xs text-rose-600">{fieldErrors.email}</p>}
             </div>
             <div>
-              <input type="password" placeholder="Password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500" />
+              <input type="password" placeholder="Password" value={form.password} onChange={(event) => updateField('password', event.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500" />
               {fieldErrors.password && <p className="mt-1 text-xs text-rose-600">{fieldErrors.password}</p>}
             </div>
             <div>
-              <input type="password" placeholder="Confirm password" value={form.confirmPassword} onChange={(event) => setForm((current) => ({ ...current, confirmPassword: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500" />
+              <input type="password" placeholder="Confirm password" value={form.confirmPassword} onChange={(event) => updateField('confirmPassword', event.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500" />
               {fieldErrors.confirmPassword && <p className="mt-1 text-xs text-rose-600">{fieldErrors.confirmPassword}</p>}
             </div>
             <div>
-              <input type="text" placeholder="Student ID" value={form.studentIdNumber} onChange={(event) => setForm((current) => ({ ...current, studentIdNumber: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500" />
+              <input type="text" placeholder="Student ID" value={form.studentIdNumber} onChange={(event) => updateField('studentIdNumber', event.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500" />
               {fieldErrors.studentIdNumber && <p className="mt-1 text-xs text-rose-600">{fieldErrors.studentIdNumber}</p>}
             </div>
             <div>
-              <select value={form.faculty} onChange={(event) => setForm((current) => ({ ...current, faculty: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500">
+              <select value={form.faculty} onChange={(event) => updateField('faculty', event.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500">
                 <option value="">Select faculty</option>
                 {EDU_SHARE_FACULTIES.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
               {fieldErrors.faculty && <p className="mt-1 text-xs text-rose-600">{fieldErrors.faculty}</p>}
             </div>
             <div>
-              <select value={form.year} onChange={(event) => setForm((current) => ({ ...current, year: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500">
+              <select value={form.year} onChange={(event) => updateField('year', event.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500">
                 <option value="">Academic year</option>
                 <option value="Year 1">Year 1</option>
                 <option value="Year 2">Year 2</option>
@@ -127,7 +165,7 @@ export default function SignUpPage() {
               {fieldErrors.year && <p className="mt-1 text-xs text-rose-600">{fieldErrors.year}</p>}
             </div>
             <div>
-              <select value={form.semester} onChange={(event) => setForm((current) => ({ ...current, semester: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500">
+              <select value={form.semester} onChange={(event) => updateField('semester', event.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500">
                 <option value="">Semester</option>
                 <option value="Semester 1">Semester 1</option>
                 <option value="Semester 2">Semester 2</option>
@@ -136,15 +174,12 @@ export default function SignUpPage() {
             </div>
           </div>
 
-          <select value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500">
-            <option value="student">Student</option>
-            <option value="admin">Admin</option>
-          </select>
-          <p className="text-xs text-slate-500">For student role, student ID, faculty, year, and semester are required.</p>
+          <p className="text-xs text-slate-500">Create a student account using your real university details.</p>
+          <p className="text-xs text-slate-500">{PASSWORD_HELP}</p>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <button className="w-full rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white hover:bg-brand-700">Sign up</button>
+          <button type="submit" className="w-full rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white hover:bg-brand-700">Sign up</button>
         </form>
 
         <p className="mt-6 text-sm text-slate-600">Already have an account? <Link className="font-semibold text-brand-700" to="/signin">Sign in</Link></p>

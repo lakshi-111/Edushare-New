@@ -1,14 +1,38 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 
+function mapFieldErrors(errors = []) {
+  return errors.reduce((acc, error) => {
+    if (!acc[error.param]) acc[error.param] = error.msg;
+    return acc;
+  }, {});
+}
+
 export default function SignInPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { isAuthenticated, loading, login, user } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate(user?.role === 'admin' ? '/admin/dashboard' : '/browse', { replace: true });
+    }
+  }, [isAuthenticated, loading, navigate, user?.role]);
+
+  function updateField(key, value) {
+    setForm((current) => ({ ...current, [key]: value }));
+    setFieldErrors((current) => {
+      if (!current[key]) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    setError('');
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -39,7 +63,7 @@ export default function SignInPage() {
     } catch (err) {
       const body = err.response?.data;
       if (body?.errors) {
-        setFieldErrors(Object.fromEntries(body.errors.map((e) => [e.param, e.msg])));
+        setFieldErrors(mapFieldErrors(body.errors));
       }
       setError(body?.message || 'Login failed.');
     }
@@ -52,12 +76,30 @@ export default function SignInPage() {
         <p className="mt-2 text-slate-600">Access your EduShare account.</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <input type="email" placeholder="Email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500" />
-          <input type="password" placeholder="Password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500" />
+          <div>
+            <input
+              type="email"
+              placeholder="Email"
+              value={form.email}
+              onChange={(event) => updateField('email', event.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500"
+            />
+            {fieldErrors.email && <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>}
+          </div>
+          <div>
+            <input
+              type="password"
+              placeholder="Password"
+              value={form.password}
+              onChange={(event) => updateField('password', event.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-500"
+            />
+            {fieldErrors.password && <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>}
+          </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <button className="w-full rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white hover:bg-brand-700">Sign in</button>
+          <button type="submit" className="w-full rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white hover:bg-brand-700">Sign in</button>
         </form>
 
         <p className="mt-6 text-sm text-slate-600">Don&apos;t have an account? <Link className="font-semibold text-brand-700" to="/signup">Create one</Link></p>
