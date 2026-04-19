@@ -122,6 +122,21 @@ export default function AdminPaymentsPage() {
         <p className="mt-1 text-sm text-slate-500">Review and approve student payments</p>
       </div>
 
+      <div className="grid gap-4 md:grid-cols-4">
+        {[
+          { label: 'Total Payments', value: transactions.length },
+          { label: 'Pending', value: transactions.filter((t) => t.status === 'pending').length },
+          { label: 'Verified', value: transactions.filter((t) => t.status === 'verified').length },
+          { label: 'Completed', value: transactions.filter((t) => t.status === 'completed').length }
+        ].map((item) => (
+          <div key={item.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs uppercase tracking-widest text-slate-400">{item.label}</p>
+            <p className="mt-2 text-2xl font-bold text-brand-600">{item.value}</p>
+          </div>
+        ))}
+      </div>
+      <br />
+
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)]">
         <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-slate-900">Payments</h2>
