@@ -60,7 +60,7 @@ export default function App() {
 
             <Route
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['student']} fallbackByRole={{ admin: '/admin/dashboard' }}>
                   <DashboardShell />
                 </ProtectedRoute>
               }
