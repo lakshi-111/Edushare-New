@@ -4,6 +4,10 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import api from '../../utils/api';
 
+/**
+ * Admin payments: GET /payments/admin/ledger returns flattened transactions.
+ * Each row includes updateRoute — "payments" uses PUT /payments/:id/status, "orders" uses legacy PUT /orders/:id/status.
+ */
 export default function AdminPaymentsPage() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,12 +16,11 @@ export default function AdminPaymentsPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // On component mount, retrieve the flattened list of all global transactions
-  // This allows the admin to view all pending/completed financial activities system-wide
+  // Ledger merges Payment-backed rows with older Orders that have no Payment document yet
   useEffect(() => {
     async function load() {
       try {
-        const { data } = await api.get('/orders/all');
+        const { data } = await api.get('/payments/admin/ledger');
         setTransactions(data.transactions || []);
       } catch (error) {
         console.error('AdminPaymentsPage load error', error);
@@ -28,11 +31,14 @@ export default function AdminPaymentsPage() {
     load();
   }, []);
 
-  // Handler for mutating a transaction's state manually (e.g. from 'pending' to 'verified')
-  // Automatically syncs the local UI state on successful API response to prevent needing a full reload
-  const handleUpdateStatus = async (transactionId, newStatus) => {
+  // Status change hits payments API or orders API depending on how the ledger row was sourced
+  const handleUpdateStatus = async (transactionId, newStatus, updateRoute = 'payments') => {
     try {
-      await api.put(`/orders/${transactionId}/status`, { status: newStatus });
+      const path =
+        updateRoute === 'orders'
+          ? `/orders/${transactionId}/status`
+          : `/payments/${transactionId}/status`;
+      await api.put(path, { status: newStatus });
       setTransactions((prev) =>
         prev.map((t) => (t._id === transactionId ? { ...t, status: newStatus } : t))
       );
@@ -246,7 +252,7 @@ export default function AdminPaymentsPage() {
                           <div className="flex items-center gap-2">
                              {t.status === 'pending' && (
                                 <button
-                                  onClick={() => handleUpdateStatus(t._id, 'verified')}
+                                  onClick={() => handleUpdateStatus(t._id, 'verified', t.updateRoute)}
                                   className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[13px] font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-purple-700"
                                 >
                                   <Clock className="mr-1.5 h-3.5 w-3.5" />
@@ -254,7 +260,7 @@ export default function AdminPaymentsPage() {
                                 </button>
                              )}
                             <button
-                              onClick={() => handleUpdateStatus(t._id, 'paid')}
+                              onClick={() => handleUpdateStatus(t._id, 'paid', t.updateRoute)}
                               className="inline-flex items-center rounded-md bg-purple-600 px-3 py-1.5 text-[13px] font-semibold text-white transition hover:bg-purple-700 shadow-sm"
                             >
                               <Check className="mr-1.5 h-3 w-3 stroke-[3px]" />

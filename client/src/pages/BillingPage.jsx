@@ -9,8 +9,14 @@ import autoTable from 'jspdf-autotable';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
+/**
+ * Seller billing: stats from /orders/seller-overview, order lines from /orders/my-orders,
+ * withdrawal log from /orders/my-withdrawals; POST /orders/withdraw persists a Withdrawal then refreshes.
+ */
 export default function BillingPage() {
   const [orders, setOrders] = useState([]);
+  /** Rows from GET /orders/my-withdrawals (Mongo Withdrawal model) */
+  const [withdrawals, setWithdrawals] = useState([]);
   const [stats, setStats] = useState({ totalEarnings: 0, pendingPayments: 0, verifiedPayments: 0 });
   const [monthlyTrend, setMonthlyTrend] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,22 +27,21 @@ export default function BillingPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // Fetch overview statistics, monthly trend data, and complete order history for the seller
   const load = async () => {
     setLoading(true);
     try {
-      // Execute both API requests in parallel for better performance
-      const [overviewRes, ordersRes] = await Promise.all([
+      // Overview + buyer orders as seller + persisted withdrawals in one round-trip
+      const [overviewRes, ordersRes, withdrawalsRes] = await Promise.all([
         api.get('/orders/seller-overview'),
-        api.get('/orders/my-orders')
+        api.get('/orders/my-orders'),
+        api.get('/orders/my-withdrawals')
       ]);
-      
-      // Update state with overview statistics and monthly trends if available
+
       if (overviewRes.data.stats) setStats(overviewRes.data.stats);
       if (overviewRes.data.monthlyTrend) setMonthlyTrend(overviewRes.data.monthlyTrend);
-      
-      // Update order history
+
       setOrders(ordersRes.data.orders || []);
+      setWithdrawals(withdrawalsRes.data.withdrawals || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -49,7 +54,7 @@ export default function BillingPage() {
     load();
   }, []);
 
-  // Handle the withdrawal of available (verified) funds calculation
+  // POST /orders/withdraw creates a Withdrawal document server-side; response includes withdrawal._id
   const handleWithdraw = async () => {
     // Check if there are sufficient verified funds to withdraw
     if (stats.verifiedPayments === 0) {
@@ -62,11 +67,10 @@ export default function BillingPage() {
     if (!confirm) return;
 
     try {
-      // Proceed with the withdrawal request
-      await api.post('/orders/withdraw');
-      alert('Successfully withdrawn!');
-      
-      // Refresh the dashboard data post-withdrawal to reflect the new balance
+      const { data } = await api.post('/orders/withdraw');
+      const ref = data.withdrawal?._id ? ` Reference: ${data.withdrawal._id}` : '';
+      alert(`Successfully withdrawn ${formatCurrency(data.amount ?? stats.verifiedPayments)}.${ref}`);
+
       load();
     } catch (err) {
       console.error('Withdrawal failed', err);
@@ -268,6 +272,46 @@ export default function BillingPage() {
             <Clock className="h-6 w-6 text-orange-600" />
           </div>
         </div>
+      </div>
+
+      {/* Data source: GET /orders/my-withdrawals — each row is one click of "Withdraw Earnings" */}
+      <div className="mt-8 rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-900">Withdrawal history</h2>
+        <p className="mt-1 text-sm text-slate-500">Each withdrawal is stored when you settle your available balance.</p>
+        {withdrawals.length === 0 ? (
+          <p className="mt-6 text-sm text-slate-500">No withdrawals yet.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-100">
+            <table className="w-full min-w-[520px] text-left text-sm text-slate-600">
+              <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Amount</th>
+                  <th className="px-4 py-3">Orders settled</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Reference</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {withdrawals.map((w) => (
+                  <tr key={w._id} className="hover:bg-slate-50/60">
+                    <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-800">
+                      {new Date(w.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-slate-900">{formatCurrency(w.amount)}</td>
+                    <td className="px-4 py-3">{Array.isArray(w.orderIds) ? w.orderIds.length : 0}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold capitalize text-emerald-700">
+                        {w.status || 'completed'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-500">{w._id}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="mt-8 rounded-[20px] border border-slate-200 bg-white p-6 shadow-sm">

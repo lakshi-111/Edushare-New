@@ -1,7 +1,49 @@
 const Order = require('../models/Order');
+const Payment = require('../models/Payment');
+const Withdrawal = require('../models/Withdrawal');
 const Resource = require('../models/Resource');
 const User = require('../models/User');
 const { createNotification } = require('../utils/notifications');
+const { notifyOrderPaymentStatus } = require('../utils/orderStatusNotify');
+
+// Buyer library: resources appear after admin has approved the order (not while still pending-only).
+const LIBRARY_ELIGIBLE_STATUSES = ['verified', 'approved', 'paid', 'completed'];
+// First time the order hits one of these, we apply User.totalEarnings once (guarded by sellerEarningsApplied).
+const SELLER_CREDIT_STATUSES = ['verified', 'approved', 'paid', 'completed'];
+
+/**
+ * Idempotent seller payout for an order: increments uploaders' totalEarnings once, flags the order,
+ * notifies the buyer that library access is ready. Called from admin order/payment status updates.
+ */
+async function applySellerCreditsIfNeeded(orderId) {
+  const order = await Order.findById(orderId);
+  if (!order || order.sellerEarningsApplied) return;
+  if (!SELLER_CREDIT_STATUSES.includes(order.status)) return;
+
+  const buyerId = order.userId.toString();
+  const resourceIds = order.items.map((item) => item.resourceId);
+  const resources = await Resource.find({ _id: { $in: resourceIds } });
+
+  await Promise.all(
+    resources
+      .filter((resource) => resource.uploaderId.toString() !== buyerId)
+      .map((resource) =>
+        User.findByIdAndUpdate(resource.uploaderId, {
+          $inc: { totalEarnings: resource.price > 0 ? resource.price : 0 }
+        })
+      )
+  );
+
+  await Order.findByIdAndUpdate(order._id, { sellerEarningsApplied: true });
+
+  await createNotification({
+    userId: order.userId,
+    type: 'payment',
+    title: 'Purchase approved',
+    message: `Your order is approved. You can now access ${order.items.map((item) => `"${item.title}"`).join(', ')} in your library.`,
+    relatedId: order._id
+  });
+}
 
 /**
  * Allows a user to automatically add a free resource to their owned library.
@@ -37,7 +79,8 @@ async function addFreeResourceToLibrary(req, res) {
       }
     ],
     totalPrice: 0,
-    status: 'completed' // Instantly completed since no payment is needed
+    status: 'completed', // Instantly completed since no payment is needed
+    sellerEarningsApplied: true // Skip earn-credit pipeline; free adds do not use applySellerCreditsIfNeeded
   });
 
   // Keep track of the uploader's metrics (downloads)
@@ -58,8 +101,7 @@ async function addFreeResourceToLibrary(req, res) {
 }
 
 /**
- * Processes a direct checkout order for paid resources.
- * Handles order creation, billing the user, dispatching notifications, and updating seller earnings.
+ * Cart checkout (navbar/cart): creates Order + Payment in "pending"; seller credits run only after admin approval.
  */
 async function createOrder(req, res) {
   const items = Array.isArray(req.body.items) ? req.body.items : [];
@@ -84,42 +126,33 @@ async function createOrder(req, res) {
 
   const totalPrice = orderItems.reduce((sum, item) => sum + item.price, 0);
 
-  // Note: Standard checkout creates orders assuming 'completed' payment logic.
   const order = await Order.create({
     userId: req.user._id,
     items: orderItems,
     totalPrice,
-    status: 'completed'
+    status: 'pending' // Awaiting admin before library + seller earnings (see applySellerCreditsIfNeeded)
   });
 
-  // Notify buyer immediately
+  // Parallel Payment row for ledger / admin payments API (unique per order)
+  await Payment.create({
+    userId: req.user._id,
+    orderId: order._id,
+    items: orderItems,
+    totalAmount: totalPrice,
+    currency: 'LKR',
+    paymentMethod: 'checkout',
+    status: 'pending'
+  });
+
   await createNotification({
     userId: req.user._id,
     type: 'payment',
-    title: 'Payment successful',
-    message: `Thank you for your purchase! Your payment of ${totalPrice.toFixed(2)} has been processed successfully. You can now access ${orderItems.map(item => `"${item.title}"`).join(', ')} in your library.`,
+    title: 'Order received',
+    message: `Your purchase of Rs ${totalPrice.toFixed(2)} is pending admin verification. You will be notified when ${orderItems.map((item) => `"${item.title}"`).join(', ')} can be opened from your library.`,
     relatedId: order._id
   });
 
-  // Issue earning updates and order notifications to involved sellers asynchronously in parallel
-  await Promise.all(
-    resources
-      .filter((resource) => resource.uploaderId.toString() !== req.user._id.toString())
-      .map(async (resource) => {
-        await User.findByIdAndUpdate(resource.uploaderId, {
-          $inc: { totalEarnings: resource.price > 0 ? resource.price : 0 }
-        });
-        return createNotification({
-          userId: resource.uploaderId,
-          type: 'order',
-          title: 'Resource purchased',
-          message: `Great news! ${req.user.name} has just purchased your resource "${resource.title}" for ${resource.price.toFixed(2)}. Your total earnings have been updated.`,
-          relatedId: order._id
-        });
-      })
-  );
-
-  res.status(201).json({ message: 'Order completed.', order });
+  res.status(201).json({ message: 'Order submitted and pending verification.', order });
 }
 
 /**
@@ -131,12 +164,12 @@ async function getUserOrders(req, res) {
 }
 
 /**
- * Reconstructs a buyer's library by flattening their completed orders into individual line items.
- * Allows access to downloaded files and references the original order time.
+ * Buyer library: includes orders admin has moved into verified+ (pending-only purchases stay hidden here).
  */
 async function getUserLibrary(req, res) {
-  // We only show items in the library that exist under an officially 'completed' payment wrapper
-  const orders = await Order.find({ userId: req.user._id, status: 'completed' }).sort({ createdAt: -1 });
+  const orders = await Order.find({ userId: req.user._id, status: { $in: LIBRARY_ELIGIBLE_STATUSES } }).sort({
+    createdAt: -1
+  });
   
   // Flatten orders into a list of singular items injected with order-level properties
   const library = orders.flatMap((order) => order.items.map((item) => ({ ...item.toObject(), orderId: order._id, purchasedAt: order.createdAt })));
@@ -310,48 +343,21 @@ async function updateOrderStatus(req, res) {
   order.status = status;
   await order.save();
 
-  // Route specific notification language depending on the exact approval tier
-  const isVerifiedOrd = status === 'verified';
-  const isApprovedOrd = status === 'approved' || status === 'paid';
+  // Keep linked Payment document in lockstep for admin payment views
+  await Payment.updateOne({ orderId: order._id }, { $set: { status } });
 
-  if (isVerifiedOrd || isApprovedOrd) {
-    const titleText = isVerifiedOrd ? 'Payment Verified' : 'Payment Approved';
-    const actionText = isVerifiedOrd ? 'verified' : 'approved';
-    const orderItemsList = order.items.map(item => `"${item.title}"`).join(', ');
+  // Credits + buyer library notification first; then seller-facing admin notices (orderStatusNotify)
+  await applySellerCreditsIfNeeded(order._id);
+  await notifyOrderPaymentStatus(await Order.findById(order._id), status);
 
-    await createNotification({
-      userId: order.userId,
-      type: 'payment',
-      title: titleText,
-      message: `Your payment for Order #${order._id.toString().substring(0, 8).toUpperCase()} containing ${orderItemsList} has been ${actionText} by the administrative team.`,
-      relatedId: order._id
-    });
+  const orderAfter = await Order.findById(order._id);
 
-    const resourceIds = order.items.map(item => item.resourceId);
-    const resources = await Resource.find({ _id: { $in: resourceIds } });
-
-    await Promise.all(resources.map(resource => {
-      // Exclude buyer's own resources just in case, though usually buyers don't buy their own stuff.
-      if (resource.uploaderId.toString() !== order.userId.toString()) {
-        return createNotification({
-          userId: resource.uploaderId,
-          type: 'verification',
-          title: `Selling ${titleText}`,
-          message: `The payment for your resource "${resource.title}" has been ${actionText} by the admin. The earnings are now verified and available in your balance.`,
-          relatedId: order._id
-        });
-      }
-    }));
-  }
-
-  res.json({ message: 'Order status updated.', order });
+  res.json({ message: 'Order status updated.', order: orderAfter });
 }
 
 /**
- * Calculates a seller's legitimate available balance and processes a withdrawal.
- * The system calculates available balance by looking only at orders in 
- * 'verified', 'approved', or 'paid' states.
- * Upon withdrawal, these orders are marked as 'completed' so they move into total earnings.
+ * Billing "Withdraw": sums seller-available orders (verified|approved|paid), persists Withdrawal,
+ * completes those orders + linked payments, notifies the seller.
  */
 async function withdrawEarnings(req, res) {
   // Find all resources owned by the withdrawer
@@ -376,22 +382,57 @@ async function withdrawEarnings(req, res) {
     return res.status(400).json({ message: 'No available balance to withdraw.' });
   }
 
-  // Option 2: Change the status of these orders to 'completed'
-  const orderIds = orders.map(o => o._id);
+  const orderIds = orders.map((o) => o._id);
+
+  // DB record for billing history + audit trail (returned to client for confirmation UI)
+  const withdrawal = await Withdrawal.create({
+    userId: req.user._id,
+    amount: availableToWithdraw,
+    currency: 'LKR',
+    orderIds,
+    status: 'completed'
+  });
+
   await Order.updateMany(
     { _id: { $in: orderIds } },
-    { $set: { status: 'completed' } }
+    { $set: { status: 'completed', sellerEarningsApplied: true } }
   );
+
+  // Align Payment rows with completed orders after payout settlement
+  await Payment.updateMany({ orderId: { $in: orderIds } }, { $set: { status: 'completed' } });
 
   await createNotification({
     userId: req.user._id,
     type: 'payment',
     title: 'Withdrawal Successful',
-    message: `Your withdrawal request for ${availableToWithdraw.toFixed(2)} has been processed successfully. The funds have been deducted from your available balance.`,
-    relatedId: null
+    message: `Your withdrawal of Rs ${availableToWithdraw.toFixed(2)} has been recorded. ${orderIds.length} order(s) were settled.`,
+    relatedId: withdrawal._id
   });
 
-  res.json({ message: `Successfully withdrawn`, amount: availableToWithdraw });
+  res.json({
+    message: 'Withdrawal completed successfully.',
+    amount: availableToWithdraw,
+    withdrawal
+  });
 }
 
-module.exports = { createOrder, addFreeResourceToLibrary, getUserOrders, getUserLibrary, getSellerOverview, getAllOrders, updateOrderStatus, withdrawEarnings };
+/** Seller: list own withdrawal records (newest first). */
+async function getMyWithdrawals(req, res) {
+  const withdrawals = await Withdrawal.find({ userId: req.user._id })
+    .sort({ createdAt: -1 })
+    .select('amount currency orderIds status createdAt updatedAt');
+  res.json({ withdrawals });
+}
+
+module.exports = {
+  createOrder,
+  addFreeResourceToLibrary,
+  getUserOrders,
+  getUserLibrary,
+  getSellerOverview,
+  getAllOrders,
+  updateOrderStatus,
+  withdrawEarnings,
+  getMyWithdrawals,
+  applySellerCreditsIfNeeded
+};

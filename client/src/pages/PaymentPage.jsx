@@ -5,6 +5,7 @@ import { z } from 'zod';
 import api from '../utils/api';
 import { formatCurrency } from '../utils/formatters';
 
+// Card checkout: POST /payments/process creates pending Order+Payment; library unlocks after admin approval
 const paymentSchema = z.object({
   cardNumber: z.string()
     .transform((val) => val.replace(/\s+/g, ''))
@@ -108,13 +109,17 @@ export default function PaymentPage() {
     }
 
     try {
+      // PayPal path omits card; backend creates pending payment + order
       const response = await api.post('/payments/process', {
         items: items.map((item) => ({ resourceId: item._id })),
         paymentMethod: method,
         card: method === 'credit-card' ? { number: cardNumber.replace(/\s+/g, ''), expiry: expiry.trim(), cvv: cvv.trim() } : undefined
       });
 
-      navigate('/payment/success', { state: { total: total, order: response.data.order } });
+      // Pass payment id for success screen reference string
+      navigate('/payment/success', {
+        state: { total, order: response.data.order, payment: response.data.payment }
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Payment failed.');
     } finally {
@@ -126,7 +131,7 @@ export default function PaymentPage() {
     <section className="mx-auto max-w-6xl">
       <div className="mb-5">
         <h1 className="text-4xl font-bold text-slate-900">Payment</h1>
-        <p className="mt-2 text-sm text-slate-500">Complete your purchase and unlock resources instantly.</p>
+        <p className="mt-2 text-sm text-slate-500">Complete your purchase; resources unlock after admin approval.</p>
       </div>
 
       {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
@@ -190,11 +195,11 @@ export default function PaymentPage() {
 
         <div className="rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Helpful information</h2>
-          <p className="mt-2 text-sm text-slate-500">Your purchase will be added to library instantly after payment succeeds. You can then download resources in My Library.</p>
+          <p className="mt-2 text-sm text-slate-500">After you pay, the order stays pending until an administrator verifies it. You will be notified when resources are unlocked in My Library.</p>
           <ul className="mt-4 space-y-2 text-sm text-slate-600">
             <li>• Transactions are processed securely</li>
             <li>• Payment receipt is stored in transaction history</li>
-            <li>• You will receive a notification once payment completes</li>
+            <li>• You will receive a notification when your payment is approved</li>
           </ul>
         </div>
       </div>

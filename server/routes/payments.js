@@ -1,13 +1,34 @@
+/**
+ * Payment REST API: process (checkout page), CRUD-ish admin routes, /me for buyers,
+ * /admin/ledger for admin UI (merged with legacy orders without Payment rows).
+ * Route order matters: /admin/* and /me before /:id.
+ */
 const express = require('express');
-const { auth } = require('../middleware/auth');
-const { processPayment } = require('../controllers/paymentController');
+const { auth, requireAdmin } = require('../middleware/auth');
+const {
+  processPayment,
+  listMyPayments,
+  getPaymentById,
+  getAdminPaymentLedger,
+  createManualPayment,
+  updatePayment,
+  updatePaymentStatus,
+  deletePayment
+} = require('../controllers/paymentController');
 
 const router = express.Router();
 
-// Apply authentication middleware to ensure only logged-in users can initiate payments
 router.use(auth);
 
-// Route to process a new payment request and generate the corresponding order
 router.post('/process', processPayment);
+router.get('/me', listMyPayments);
+
+router.get('/admin/ledger', requireAdmin, getAdminPaymentLedger);
+router.post('/admin/manual', requireAdmin, createManualPayment);
+
+router.put('/:id/status', requireAdmin, updatePaymentStatus);
+router.put('/:id', requireAdmin, updatePayment);
+router.delete('/:id', requireAdmin, deletePayment);
+router.get('/:id', getPaymentById);
 
 module.exports = router;

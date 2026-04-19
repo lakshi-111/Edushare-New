@@ -2,15 +2,16 @@ const express = require('express');
 const { auth } = require('../middleware/auth');
 
 // Import order-related controller functions
-const { 
-  createOrder, 
-  addFreeResourceToLibrary, 
-  getUserOrders, 
-  getUserLibrary, 
-  getSellerOverview, 
-  getAllOrders, 
-  updateOrderStatus, 
-  withdrawEarnings 
+const {
+  createOrder,
+  addFreeResourceToLibrary,
+  getUserOrders,
+  getUserLibrary,
+  getSellerOverview,
+  getAllOrders,
+  updateOrderStatus,
+  withdrawEarnings,
+  getMyWithdrawals
 } = require('../controllers/orderController');
 
 const router = express.Router();
@@ -43,9 +44,11 @@ router.get('/my-library', getUserLibrary);
 // Fetch financial stats (total earnings, pending/verified payments) for the seller
 router.get('/seller-overview', getSellerOverview);
 
-// Process a withdrawal request for a seller's available (verified) earnings
+// Settles verified|approved|paid orders to completed, writes a Withdrawal row, syncs Payment docs
 router.post('/withdraw', withdrawEarnings);
 
+// Lists Withdrawal documents for the logged-in seller (billing "Withdrawal history" table)
+router.get('/my-withdrawals', getMyWithdrawals);
 
 // ==========================================
 // Admin Operations Routes

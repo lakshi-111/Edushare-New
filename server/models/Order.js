@@ -1,5 +1,10 @@
 const mongoose = require('mongoose');
 
+/**
+ * Purchase / checkout order.
+ * Paid checkouts start as status "pending" until an admin advances them; sellerEarningsApplied
+ * ensures User.totalEarnings is incremented only once when the order first reaches an approved status.
+ */
 const orderSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -13,7 +18,9 @@ const orderSchema = new mongoose.Schema(
       }
     ],
     totalPrice: { type: Number, required: true, min: 0 },
-    status: { type: String, enum: ['pending', 'verified', 'approved', 'paid', 'completed', 'rejected'], default: 'pending' }
+    status: { type: String, enum: ['pending', 'verified', 'approved', 'paid', 'completed', 'rejected'], default: 'pending' },
+    /** Prevents applying seller User.totalEarnings increments more than once for this order. */
+    sellerEarningsApplied: { type: Boolean, default: false }
   },
   { timestamps: true }
 );
