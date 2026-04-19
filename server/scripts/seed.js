@@ -32,36 +32,24 @@ async function seed() {
   });
 
   const seller = await User.create({
-    name: 'Nimali Perera',
+    name: 'John Doe',
     email: 'nimali@example.com',
     password: 'Student123',
-    role: 'student',
-    studentIdNumber: 'IT2023001',
-    faculty: 'Faculty of Computing',
-    year: 'Year 3',
-    semester: 'Semester 1'
+    role: 'student'
   });
 
   const buyer = await User.create({
-    name: 'Kasun Silva',
+    name: 'Buyer One',
     email: 'kasun@example.com',
     password: 'Student123',
-    role: 'student',
-    studentIdNumber: 'IT2023002',
-    faculty: 'Faculty of Computing',
-    year: 'Year 2',
-    semester: 'Semester 2'
+    role: 'student'
   });
 
   const buyerTwo = await User.create({
-    name: 'Ayesha Fernando',
+    name: 'Buyer Two',
     email: 'buyer2@example.com',
     password: 'Student123',
-    role: 'student',
-    studentIdNumber: 'IT2023003',
-    faculty: 'Faculty of Business',
-    year: 'Year 1',
-    semester: 'Semester 1'
+    role: 'student'
   });
 
   const resources = await Resource.insertMany([

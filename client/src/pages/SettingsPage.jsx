@@ -6,7 +6,7 @@ import { formatCurrency, formatDate } from '../utils/formatters';
 import { EDU_SHARE_FACULTIES } from '../utils/faculties';
 
 export default function SettingsPage() {
-  const { user, login, refreshProfile } = useAuth();
+  const { user, login } = useAuth();
 
   const [profileForm, setProfileForm] = useState({
     name: user?.name || '',
@@ -18,7 +18,6 @@ export default function SettingsPage() {
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '' });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [syncStatus, setSyncStatus] = useState('idle');
 
   useEffect(() => {
     setProfileForm({
@@ -29,30 +28,6 @@ export default function SettingsPage() {
       semester: user?.semester || ''
     });
   }, [user]);
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function syncProfile() {
-      try {
-        setSyncStatus('syncing');
-        await refreshProfile();
-        if (!ignore) {
-          setSyncStatus('synced');
-        }
-      } catch (_error) {
-        if (!ignore) {
-          setSyncStatus('error');
-        }
-      }
-    }
-
-    syncProfile();
-
-    return () => {
-      ignore = true;
-    };
-  }, [refreshProfile]);
 
   const stats = useMemo(() => [
     ['Account Role', user?.role || 'student'],
@@ -121,11 +96,6 @@ export default function SettingsPage() {
       <div className="mb-5">
         <h1 className="text-[44px] font-bold tracking-tight text-slate-900">Settings</h1>
         <p className="mt-2 text-base text-slate-500">Manage your profile and account preferences</p>
-        <p className="mt-1 text-sm text-slate-400">
-          {syncStatus === 'syncing' && 'Refreshing your saved profile...'}
-          {syncStatus === 'synced' && 'Profile synced with your latest saved data.'}
-          {syncStatus === 'error' && 'Could not refresh profile right now.'}
-        </p>
       </div>
 
       {(message || error) && (

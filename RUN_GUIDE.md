@@ -31,18 +31,14 @@ Fallbacks already supported:
 - if `MONGODB_URI` is missing and `mongodb-memory-server` is installed, the backend can start with an in-memory MongoDB
 - otherwise set a normal MongoDB URI manually
 
-## 4) Optional sample data
+## 4) Seed sample data
 
 ```bash
 cd server
 npm run seed
 ```
 
-Use this only when you want a fresh demo dataset for presentation or development.
-
-You can skip seeding and create your own real users from the sign-up page instead.
-
-Sample accounts created by the seed:
+Seed accounts:
 - Admin: `admin@edushare.com` / `Admin123`
 - Student seller dashboard: `nimali@example.com` / `Student123`
 - Student buyer: `kasun@example.com` / `Student123`
